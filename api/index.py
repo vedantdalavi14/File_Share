@@ -5,6 +5,7 @@ import qrcode
 from io import BytesIO
 import base64
 from dotenv import load_dotenv
+from flask_vercel import Vercel
 
 load_dotenv()
 
@@ -67,4 +68,6 @@ def download(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
 
 def handler(environ, start_response):
-    return handle_request(app, environ, start_response) 
+    return handle_request(app, environ, start_response)
+
+app = Vercel(app) 
