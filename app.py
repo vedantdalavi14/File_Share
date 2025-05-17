@@ -67,4 +67,5 @@ def download_file(file_id):
 def download(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
 
-app = Vercel(app) 
+if __name__ == "__main__":
+    app.run(debug=True) 
