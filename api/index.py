@@ -5,7 +5,7 @@ import qrcode
 from io import BytesIO
 import base64
 from dotenv import load_dotenv
-from flask_vercel import Vercel
+
 
 load_dotenv()
 
