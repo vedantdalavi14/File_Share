@@ -1,0 +1,193 @@
+🚀 SnapShare Hybrid – A Production-Grade File Sharing Platform
+🔥 Overview
+SnapShare Hybrid is a hybrid file-sharing web application that allows users to securely transfer files through two modes:
+
+📡 Instant Peer-to-Peer (P2P) File Sharing using WebRTC (no server storage)
+
+☁️ Upload & Share Mode using Supabase Storage + Auto-expiring Link + QR Code
+
+🎯 PROJECT GOALS
+Securely share files via:
+
+Instant, direct P2P sharing using WebRTC
+
+Cloud upload with 24h expiration using Supabase
+
+Completely private: No login or user account required
+
+Auto-delete expired files on backend
+
+Use Socket.IO for signaling in P2P mode
+
+Create a modern, clean, mobile-first UI/UX
+
+📦 FUNCTIONALITY TO IMPLEMENT
+✅ 1. Home Page (User Choice)
+Prompt the user to select between:
+
+Instant P2P Share (No Storage)
+
+Upload & Share (24h Link + QR Code)
+
+Based on selection, route user to respective flow
+
+🌐 2. INSTANT P2P FILE SHARING MODE (WebRTC + Socket.IO)
+🧠 Workflow (Step-by-Step):
+Sender visits SnapShare P2P page
+
+Clicks "Create Room" → generates a unique Room ID (UUID)
+
+App returns:
+
+A shareable link: https://snapshare.io/room/abc123
+
+A QR code of the link
+
+Sender shares this link/QR with receiver (via WhatsApp, Email, etc.)
+
+Receiver visits the link and joins the room
+
+App uses Socket.IO to:
+
+Send/receive SDP offers and answers
+
+Exchange ICE candidates
+
+Once peers are connected via WebRTC DataChannel:
+
+Stream file in chunks
+
+Show progress on both ends
+
+Close connection on success
+
+Prevent room reuse and handle timeouts/abandoned connections
+
+⚙️ Technologies:
+WebRTC (for P2P channel)
+
+Socket.IO (signaling server)
+
+UUID-based room system
+
+QR generation via qrious.js
+
+Vanilla JS or React
+
+📡 Socket.IO Signaling Events:
+js
+Copy
+Edit
+socket.emit('create-room', roomId);
+socket.emit('join-room', roomId);
+socket.emit('send-offer', { roomId, offer });
+socket.emit('send-answer', { roomId, answer });
+socket.emit('ice-candidate', { roomId, candidate });
+🧪 P2P Edge Cases Handled:
+✅ Receiver not online: Timeout logic
+
+✅ Room reused: Show "Room already used"
+
+✅ Connection interrupted: Retry/fail message
+
+✅ Large files: Chunked streaming
+
+✅ No storage on server: true end-to-end
+
+☁️ 3. UPLOAD & SHARE MODE (Supabase Storage)
+🧠 Workflow:
+User selects file to upload
+
+File is uploaded to Supabase Storage bucket
+
+A metadata document is added to Supabase DB:
+
+UUID, filename, MIME type, timestamp, expiry (24h), download count
+
+App generates:
+
+A secure download link: https://snapshare.io/download/abc123
+
+A QR code of the link
+
+Receiver visits link to download
+
+File auto-deletes after 24 hours via backend cleanup
+
+⚙️ Technologies:
+Supabase Storage (for file storage)
+
+Supabase DB (for metadata)
+
+Supabase Functions or Python apscheduler (for cleanup)
+
+Frontend: qrious.js for QR code
+
+🧪 Edge Cases:
+✅ Expired file: 404-style error page
+
+✅ Dangerous extensions (.exe, .sh, .bat): Blocked
+
+✅ Oversized files (>100MB): Block/warn
+
+✅ Expired downloads: Cleanup job deletes file + metadata
+
+✅ Concurrent downloads: Supported via signed URL
+
+🔐 4. SECURITY FEATURES
+No user authentication required
+
+Restrict file types (PDF, Images, Videos, Docs only)
+
+Supabase Row Level Security (RLS) to ensure:
+
+File access via signed URLs only
+
+Expired file logic only executes from backend
+
+Limit max file size (e.g. 100MB)
+
+Use HTTPS always
+
+Strip embedded metadata if needed
+
+🔁 5. EXPIRATION + CLEANUP SYSTEM
+Options:
+Option A (Python Server): Use apscheduler to:
+
+Run hourly job
+
+Check file expiry from metadata
+
+Delete from Supabase Storage + DB
+
+Option B (Supabase Edge Functions / Cron):
+
+Scheduled cleanup using Supabase Edge Functions
+
+Trigger via pg_cron or Supabase CRON scheduler
+
+📲 6. UI/UX FRONTEND FEATURES
+Mobile-first responsive layout
+
+Modern, smooth animations and transitions
+
+Drag-and-drop file selector
+
+Copy link & QR code
+
+Auto-expiry countdown
+
+File name & type shown clearly
+
+Light/Dark mode toggle (optional)
+
+🧠 TECH STACK
+Layer	Tech
+Frontend	HTML5, CSS3, JS (or React), Tailwind (optional), qrious.js (QR gen)
+Backend	Node.js (Socket.IO signaling) + Python FastAPI/Flask (for cloud mode cleanup, QR gen, optional API)
+Real-Time	Socket.IO (signaling server for P2P WebRTC)
+File Upload	Supabase Storage
+Metadata DB	Supabase Postgres (for file info + expiry logic)
+Cleanup	Python scheduler or Supabase cron job
+Hosting	Vercel / Netlify (Frontend), Railway / Render (Backend)
