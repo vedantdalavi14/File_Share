@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { storage } from "./storage";
 import { insertFileSchema } from "@shared/schema";
 import { z } from "zod";
@@ -15,6 +16,16 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB
   },
 });
+
+// P2P Room management
+interface P2PRoom {
+  id: string;
+  participants: Set<string>;
+  createdAt: Date;
+  isActive: boolean;
+}
+
+const p2pRooms = new Map<string, P2PRoom>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // File upload endpoint
@@ -156,7 +167,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // P2P Room endpoints
+  app.post("/api/p2p/create-room", (req, res) => {
+    const roomId = randomUUID();
+    const room: P2PRoom = {
+      id: roomId,
+      participants: new Set(),
+      createdAt: new Date(),
+      isActive: true,
+    };
+    p2pRooms.set(roomId, room);
+    
+    res.json({
+      success: true,
+      roomId,
+      roomUrl: `/p2p/${roomId}`,
+    });
+  });
+
+  app.get("/api/p2p/room/:roomId", (req, res) => {
+    const { roomId } = req.params;
+    const room = p2pRooms.get(roomId);
+    
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+    
+    if (!room.isActive) {
+      return res.status(410).json({ message: "Room is no longer active" });
+    }
+    
+    res.json({
+      roomId: room.id,
+      participantCount: room.participants.size,
+      isActive: room.isActive,
+      createdAt: room.createdAt,
+    });
+  });
+
   const httpServer = createServer(app);
+  
+  // Setup Socket.IO for P2P signaling
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
+  io.on("connection", (socket) => {
+    console.log("Socket connected:", socket.id);
+
+    socket.on("create-room", (roomId: string) => {
+      const room = p2pRooms.get(roomId);
+      if (room && room.isActive) {
+        socket.join(roomId);
+        room.participants.add(socket.id);
+        socket.emit("room-created", { roomId });
+        console.log(`Room ${roomId} created by ${socket.id}`);
+      } else {
+        socket.emit("error", { message: "Invalid room ID" });
+      }
+    });
+
+    socket.on("join-room", (roomId: string) => {
+      const room = p2pRooms.get(roomId);
+      if (!room || !room.isActive) {
+        socket.emit("error", { message: "Room not found or inactive" });
+        return;
+      }
+
+      if (room.participants.size >= 2) {
+        socket.emit("error", { message: "Room is full" });
+        return;
+      }
+
+      socket.join(roomId);
+      room.participants.add(socket.id);
+      
+      // Notify other participants
+      socket.to(roomId).emit("peer-joined", { peerId: socket.id });
+      socket.emit("room-joined", { roomId, participantCount: room.participants.size });
+      
+      console.log(`${socket.id} joined room ${roomId}`);
+    });
+
+    socket.on("send-offer", ({ roomId, offer, targetPeerId }) => {
+      socket.to(targetPeerId).emit("receive-offer", { 
+        offer, 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("send-answer", ({ roomId, answer, targetPeerId }) => {
+      socket.to(targetPeerId).emit("receive-answer", { 
+        answer, 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("ice-candidate", ({ roomId, candidate, targetPeerId }) => {
+      socket.to(targetPeerId).emit("ice-candidate", { 
+        candidate, 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("file-transfer-start", ({ roomId, fileName, fileSize, targetPeerId }) => {
+      socket.to(targetPeerId).emit("file-transfer-start", { 
+        fileName, 
+        fileSize, 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("file-transfer-progress", ({ roomId, progress, targetPeerId }) => {
+      socket.to(targetPeerId).emit("file-transfer-progress", { 
+        progress, 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("file-transfer-complete", ({ roomId, targetPeerId }) => {
+      socket.to(targetPeerId).emit("file-transfer-complete", { 
+        fromPeerId: socket.id 
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected:", socket.id);
+      
+      // Remove from all rooms
+      for (const [roomId, room] of p2pRooms.entries()) {
+        if (room.participants.has(socket.id)) {
+          room.participants.delete(socket.id);
+          socket.to(roomId).emit("peer-left", { peerId: socket.id });
+          
+          // Mark room as inactive if empty
+          if (room.participants.size === 0) {
+            room.isActive = false;
+          }
+        }
+      }
+    });
+  });
+
+  // Cleanup inactive rooms every 30 minutes
+  setInterval(() => {
+    const now = new Date();
+    for (const [roomId, room] of p2pRooms.entries()) {
+      const ageHours = (now.getTime() - room.createdAt.getTime()) / (1000 * 60 * 60);
+      if (!room.isActive || ageHours > 2) { // Remove rooms older than 2 hours
+        p2pRooms.delete(roomId);
+        console.log(`Cleaned up room ${roomId}`);
+      }
+    }
+  }, 30 * 60 * 1000);
 
   return httpServer;
 }

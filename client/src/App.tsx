@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import Download from "@/pages/download";
+import P2PRoom from "@/pages/p2p-room";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -12,6 +13,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/download/:uuid" component={Download} />
+      <Route path="/p2p/:roomId" component={P2PRoom} />
       <Route component={NotFound} />
     </Switch>
   );
