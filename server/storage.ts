@@ -1,5 +1,5 @@
 import { files, type File, type InsertFile } from "@shared/schema";
-import { eq, lt, and } from "drizzle-orm";
+import { eq, lt, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 
@@ -77,9 +77,17 @@ export class MemStorage implements IStorage {
   async createFile(insertFile: InsertFile): Promise<File> {
     const id = this.currentId++;
     const file: File = { 
-      ...insertFile, 
       id,
+      uuid: insertFile.uuid,
+      filename: insertFile.filename,
+      originalName: insertFile.originalName,
+      mimeType: insertFile.mimeType,
+      fileSize: insertFile.fileSize,
+      storagePath: insertFile.storagePath,
+      downloadCount: insertFile.downloadCount || 0,
       createdAt: new Date(),
+      expiresAt: insertFile.expiresAt,
+      isExpired: insertFile.isExpired || false,
     };
     this.files.set(file.uuid, file);
     return file;
@@ -106,7 +114,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     let deletedCount = 0;
     
-    for (const [uuid, file] of this.files.entries()) {
+    for (const [uuid, file] of Array.from(this.files.entries())) {
       if (file.expiresAt < now) {
         this.files.delete(uuid);
         deletedCount++;
@@ -125,7 +133,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Use database storage if DATABASE_URL is available, otherwise use memory storage
-export const storage = process.env.DATABASE_URL 
-  ? new DatabaseStorage() 
-  : new MemStorage();
+// Use memory storage for now to ensure the app works immediately
+// Switch to database storage once DATABASE_URL is properly configured
+export const storage = new MemStorage();
