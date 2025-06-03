@@ -245,11 +245,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       socket.join(roomId);
       room.participants.add(socket.id);
       
-      // Notify other participants
-      socket.to(roomId).emit("peer-joined", { peerId: socket.id });
-      socket.emit("room-joined", { roomId, participantCount: room.participants.size });
+      const participantList = Array.from(room.participants);
+      const isHost = participantList[0] === socket.id;
       
-      console.log(`${socket.id} joined room ${roomId}`);
+      // Notify other participants
+      socket.to(roomId).emit("peer-joined", { 
+        peerId: socket.id, 
+        isHost: !isHost,
+        participantCount: room.participants.size 
+      });
+      
+      socket.emit("room-joined", { 
+        roomId, 
+        participantCount: room.participants.size,
+        isHost,
+        existingPeers: participantList.filter(id => id !== socket.id)
+      });
+      
+      console.log(`${socket.id} joined room ${roomId} as ${isHost ? 'host' : 'guest'}`);
     });
 
     socket.on("send-offer", ({ roomId, offer, targetPeerId }) => {

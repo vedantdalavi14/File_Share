@@ -54,9 +54,14 @@ export default function P2PRoom() {
       setIsConnected(false);
     });
 
-    socket.on('room-joined', ({ participantCount }) => {
+    socket.on('room-joined', ({ participantCount, isHost: hostStatus, existingPeers }) => {
       setParticipantCount(participantCount);
-      setIsHost(false);
+      setIsHost(hostStatus);
+      
+      // If there are existing peers and this user is not the host, wait for connection
+      if (existingPeers.length > 0 && !hostStatus) {
+        console.log('Joining room with existing peers, waiting for connection');
+      }
     });
 
     socket.on('room-created', () => {
@@ -77,10 +82,14 @@ export default function P2PRoom() {
       }
     });
 
-    socket.on('peer-joined', ({ peerId }) => {
-      setParticipantCount(2);
-      if (isHost) {
-        initiatePeerConnection(peerId);
+    socket.on('peer-joined', ({ peerId, isHost: peerIsHost, participantCount: newCount }) => {
+      console.log('Peer joined:', peerId, 'isHost:', peerIsHost);
+      setParticipantCount(newCount);
+      
+      // Only initiate connection if this client is the host
+      if (isHost && !peerIsHost) {
+        console.log('Initiating peer connection as host to guest:', peerId);
+        setTimeout(() => initiatePeerConnection(peerId), 100);
       }
     });
 
@@ -118,12 +127,22 @@ export default function P2PRoom() {
   }, [roomId]);
 
   const initiatePeerConnection = async (targetPeerId: string) => {
+    if (peerConnection) {
+      peerConnection.close();
+    }
+
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
     });
 
     // Create data channel for file transfer
-    const dc = pc.createDataChannel('fileTransfer', { ordered: true });
+    const dc = pc.createDataChannel('fileTransfer', { 
+      ordered: true,
+      maxRetransmits: 3
+    });
     setupDataChannel(dc);
     setDataChannel(dc);
 
@@ -137,14 +156,34 @@ export default function P2PRoom() {
       }
     };
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    
-    if (socketRef.current) {
-      socketRef.current.emit('send-offer', {
-        roomId,
-        offer,
-        targetPeerId
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
+      if (pc.connectionState === 'failed') {
+        toast({
+          title: "Connection Failed",
+          description: "Unable to establish peer connection. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      
+      if (socketRef.current) {
+        socketRef.current.emit('send-offer', {
+          roomId,
+          offer,
+          targetPeerId
+        });
+      }
+    } catch (error) {
+      console.error('Error creating offer:', error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to create connection offer.",
+        variant: "destructive",
       });
     }
 
@@ -152,8 +191,15 @@ export default function P2PRoom() {
   };
 
   const handleReceiveOffer = async (offer: RTCSessionDescriptionInit, fromPeerId: string) => {
+    if (peerConnection) {
+      peerConnection.close();
+    }
+
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
     });
 
     pc.ondatachannel = (event) => {
@@ -172,15 +218,40 @@ export default function P2PRoom() {
       }
     };
 
-    await pc.setRemoteDescription(offer);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    pc.onconnectionstatechange = () => {
+      console.log('Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        toast({
+          title: "Connected",
+          description: "Peer connection established successfully!",
+        });
+      } else if (pc.connectionState === 'failed') {
+        toast({
+          title: "Connection Failed",
+          description: "Unable to establish peer connection. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
 
-    if (socketRef.current) {
-      socketRef.current.emit('send-answer', {
-        roomId,
-        answer,
-        targetPeerId: fromPeerId
+    try {
+      await pc.setRemoteDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      if (socketRef.current) {
+        socketRef.current.emit('send-answer', {
+          roomId,
+          answer,
+          targetPeerId: fromPeerId
+        });
+      }
+    } catch (error) {
+      console.error('Error handling offer:', error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to handle connection offer.",
+        variant: "destructive",
       });
     }
 
@@ -188,49 +259,86 @@ export default function P2PRoom() {
   };
 
   const setupDataChannel = (dc: RTCDataChannel) => {
+    dc.binaryType = 'arraybuffer';
+
     dc.onopen = () => {
+      console.log('Data channel opened');
       toast({
         title: "Connected",
         description: "Ready to transfer files!",
       });
     };
 
+    dc.onclose = () => {
+      console.log('Data channel closed');
+    };
+
+    dc.onerror = (error) => {
+      console.error('Data channel error:', error);
+      toast({
+        title: "Connection Error",
+        description: "Data channel error occurred.",
+        variant: "destructive",
+      });
+    };
+
     dc.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'file-metadata') {
-        fileMetadata.current = data;
-        receivedChunks.current = [];
-        setFileTransfer({
-          isActive: true,
-          fileName: data.name,
-          fileSize: data.size,
-          progress: 0,
-          direction: 'receiving'
-        });
-      } else if (data.type === 'file-chunk') {
-        receivedChunks.current.push(new Uint8Array(data.chunk));
-        const totalReceived = receivedChunks.current.reduce((sum, chunk) => sum + chunk.length, 0);
-        const progress = (totalReceived / fileMetadata.current!.size) * 100;
+      try {
+        const data = JSON.parse(event.data);
         
-        setFileTransfer(prev => ({ ...prev, progress }));
-        
-        if (totalReceived >= fileMetadata.current!.size) {
-          // File transfer complete
-          const blob = new Blob(receivedChunks.current, { type: fileMetadata.current!.type });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileMetadata.current!.name;
-          a.click();
-          URL.revokeObjectURL(url);
-          
-          setFileTransfer(prev => ({ ...prev, isActive: false, progress: 100 }));
-          toast({
-            title: "Download Complete",
-            description: `${fileMetadata.current!.name} has been downloaded.`,
+        if (data.type === 'file-metadata') {
+          console.log('Receiving file metadata:', data);
+          fileMetadata.current = data;
+          receivedChunks.current = [];
+          setFileTransfer({
+            isActive: true,
+            fileName: data.name,
+            fileSize: data.size,
+            progress: 0,
+            direction: 'receiving'
           });
+        } else if (data.type === 'file-chunk') {
+          const chunk = new Uint8Array(data.chunk);
+          receivedChunks.current.push(chunk);
+          
+          const totalReceived = receivedChunks.current.reduce((sum, chunk) => sum + chunk.length, 0);
+          const progress = Math.min((totalReceived / fileMetadata.current!.size) * 100, 100);
+          
+          setFileTransfer(prev => ({ ...prev, progress }));
+          
+          if (totalReceived >= fileMetadata.current!.size) {
+            // File transfer complete
+            console.log('File transfer complete');
+            const blob = new Blob(receivedChunks.current, { type: fileMetadata.current!.type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileMetadata.current!.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            setFileTransfer(prev => ({ ...prev, isActive: false, progress: 100 }));
+            toast({
+              title: "Download Complete",
+              description: `${fileMetadata.current!.name} has been downloaded.`,
+            });
+            
+            // Reset for next transfer
+            setTimeout(() => {
+              setFileTransfer({
+                isActive: false,
+                fileName: '',
+                fileSize: 0,
+                progress: 0,
+                direction: 'sending'
+              });
+            }, 3000);
+          }
         }
+      } catch (error) {
+        console.error('Error parsing message:', error);
       }
     };
   };
@@ -246,11 +354,15 @@ export default function P2PRoom() {
     if (!selectedFile || !dataChannel || dataChannel.readyState !== 'open') {
       toast({
         title: "Cannot send file",
-        description: "No peer connection or file selected.",
+        description: dataChannel ? 
+          `Connection not ready. Status: ${dataChannel.readyState}` : 
+          "No peer connection established.",
         variant: "destructive",
       });
       return;
     }
+
+    console.log('Starting file transfer:', selectedFile.name, selectedFile.size);
 
     // Send file metadata first
     const metadata = {
@@ -260,7 +372,18 @@ export default function P2PRoom() {
       mimeType: selectedFile.type
     };
     
-    dataChannel.send(JSON.stringify(metadata));
+    try {
+      dataChannel.send(JSON.stringify(metadata));
+      console.log('Sent metadata:', metadata);
+    } catch (error) {
+      console.error('Error sending metadata:', error);
+      toast({
+        title: "Transfer Error",
+        description: "Failed to send file metadata.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setFileTransfer({
       isActive: true,
@@ -271,39 +394,78 @@ export default function P2PRoom() {
     });
 
     // Send file in chunks
-    const chunkSize = 16384; // 16KB chunks
+    const chunkSize = 8192; // 8KB chunks for better reliability
     const fileReader = new FileReader();
     let offset = 0;
+    let chunkCount = 0;
 
-    const readChunk = () => {
-      const slice = selectedFile.slice(offset, offset + chunkSize);
-      fileReader.readAsArrayBuffer(slice);
-    };
-
-    fileReader.onload = () => {
-      const chunk = new Uint8Array(fileReader.result as ArrayBuffer);
-      dataChannel.send(JSON.stringify({
-        type: 'file-chunk',
-        chunk: Array.from(chunk)
-      }));
-
-      offset += chunk.length;
-      const progress = (offset / selectedFile.size) * 100;
-      setFileTransfer(prev => ({ ...prev, progress }));
-
-      if (offset < selectedFile.size) {
-        readChunk();
-      } else {
+    const sendNextChunk = () => {
+      if (offset >= selectedFile.size) {
+        console.log('File transfer complete');
         setFileTransfer(prev => ({ ...prev, isActive: false, progress: 100 }));
         setSelectedFile(null);
         toast({
           title: "Transfer Complete",
           description: `${selectedFile.name} has been sent successfully.`,
         });
+        
+        // Reset for next transfer
+        setTimeout(() => {
+          setFileTransfer({
+            isActive: false,
+            fileName: '',
+            fileSize: 0,
+            progress: 0,
+            direction: 'sending'
+          });
+        }, 3000);
+        return;
+      }
+
+      const slice = selectedFile.slice(offset, offset + chunkSize);
+      fileReader.readAsArrayBuffer(slice);
+    };
+
+    fileReader.onload = () => {
+      try {
+        const chunk = new Uint8Array(fileReader.result as ArrayBuffer);
+        const chunkData = {
+          type: 'file-chunk',
+          chunk: Array.from(chunk),
+          chunkIndex: chunkCount++
+        };
+        
+        dataChannel.send(JSON.stringify(chunkData));
+        
+        offset += chunk.length;
+        const progress = Math.min((offset / selectedFile.size) * 100, 100);
+        setFileTransfer(prev => ({ ...prev, progress }));
+        
+        // Add small delay between chunks to prevent overwhelming the connection
+        setTimeout(sendNextChunk, 10);
+        
+      } catch (error) {
+        console.error('Error sending chunk:', error);
+        toast({
+          title: "Transfer Error",
+          description: "Error occurred during file transfer.",
+          variant: "destructive",
+        });
+        setFileTransfer(prev => ({ ...prev, isActive: false }));
       }
     };
 
-    readChunk();
+    fileReader.onerror = () => {
+      console.error('FileReader error');
+      toast({
+        title: "File Read Error",
+        description: "Could not read the selected file.",
+        variant: "destructive",
+      });
+      setFileTransfer(prev => ({ ...prev, isActive: false }));
+    };
+
+    sendNextChunk();
   };
 
   const goHome = () => {
