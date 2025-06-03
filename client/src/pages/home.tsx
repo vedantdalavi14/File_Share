@@ -3,12 +3,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Share, Shield, Upload, Zap, Users, Smartphone, Trash2, UserX } from "lucide-react";
 import UploadInterface from "@/components/upload-interface";
+import P2PInterface from "@/components/p2p-interface";
 
 export default function Home() {
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
 
   if (selectedMode === "upload") {
     return <UploadInterface onBack={() => setSelectedMode(null)} />;
+  }
+
+  if (selectedMode === "p2p") {
+    return <P2PInterface onBack={() => setSelectedMode(null)} />;
   }
 
   return (
@@ -75,10 +80,10 @@ export default function Home() {
                   </div>
                 </div>
                 <Button 
+                  onClick={() => setSelectedMode("p2p")}
                   className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-6 rounded-xl font-semibold"
-                  disabled
                 >
-                  Coming Soon
+                  Start P2P Share
                 </Button>
               </div>
             </CardContent>

@@ -298,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Socket disconnected:", socket.id);
       
       // Remove from all rooms
-      for (const [roomId, room] of p2pRooms.entries()) {
+      for (const [roomId, room] of Array.from(p2pRooms.entries())) {
         if (room.participants.has(socket.id)) {
           room.participants.delete(socket.id);
           socket.to(roomId).emit("peer-left", { peerId: socket.id });
@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cleanup inactive rooms every 30 minutes
   setInterval(() => {
     const now = new Date();
-    for (const [roomId, room] of p2pRooms.entries()) {
+    for (const [roomId, room] of Array.from(p2pRooms.entries())) {
       const ageHours = (now.getTime() - room.createdAt.getTime()) / (1000 * 60 * 60);
       if (!room.isActive || ageHours > 2) { // Remove rooms older than 2 hours
         p2pRooms.delete(roomId);
