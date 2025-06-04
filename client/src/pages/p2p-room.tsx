@@ -30,12 +30,15 @@ export default function P2PRoom() {
     direction: 'sending'
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isHost, setIsHost] = useState(false);
+  const [isHost, setIsHost] = useState<boolean | null>(null);
+  const isHostRef = useRef<boolean | null>(null);
   
   const socketRef = useRef<Socket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const receivedChunks = useRef<Uint8Array[]>([]);
   const fileMetadata = useRef<{ name: string; size: number; type: string } | null>(null);
+  // Track if isHost has been set
+  const isHostSet = useRef(false);
 
   useEffect(() => {
     if (!roomId) return;
@@ -46,21 +49,24 @@ export default function P2PRoom() {
 
     socket.on('connect', () => {
       setIsConnected(true);
-      // Try to join room first, if it fails, create it
+      console.log('Socket connected, my id:', socket.id);
       socket.emit('join-room', roomId);
     });
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+      console.log('Socket disconnected');
     });
 
-    socket.on('room-joined', ({ participantCount, isHost: hostStatus, existingPeers }) => {
+    socket.on('room-joined', ({ participantCount, existingPeers }) => {
       setParticipantCount(participantCount);
-      setIsHost(hostStatus);
-      
-      // If there are existing peers and this user is not the host, wait for connection
-      if (existingPeers.length > 0 && !hostStatus) {
-        console.log('Joining room with existing peers, waiting for connection');
+      if (!isHostSet.current) {
+        // Only set isHost once
+        const amIHost = !existingPeers || existingPeers.length === 0;
+        setIsHost(amIHost);
+        isHostRef.current = amIHost;
+        isHostSet.current = true;
+        console.log('room-joined', { participantCount, isHost: amIHost, existingPeers });
       }
     });
 
@@ -83,14 +89,14 @@ export default function P2PRoom() {
     });
 
     socket.on('peer-joined', ({ peerId, isHost: peerIsHost, participantCount: newCount }) => {
-      console.log('Peer joined:', peerId, 'isHost:', peerIsHost);
+      console.log('Peer joined:', peerId, 'isHost (of peer):', peerIsHost, 'my isHost:', isHostRef.current, 'my socket id:', socket.id);
       setParticipantCount(newCount);
-      
-      // Only initiate connection if this client is the host
-      if (isHost && !peerIsHost) {
+      // Only the host (the one who created the room) should initiate the connection to the new peer
+      if (isHostRef.current && peerId !== socket.id) {
         console.log('Initiating peer connection as host to guest:', peerId);
         setTimeout(() => initiatePeerConnection(peerId), 100);
       }
+      console.log('peer-joined', { peerId, isHost: peerIsHost, participantCount: newCount });
     });
 
     socket.on('peer-left', () => {
@@ -103,19 +109,25 @@ export default function P2PRoom() {
     });
 
     socket.on('receive-offer', async ({ offer, fromPeerId }) => {
+      console.log('Received offer from', fromPeerId);
       await handleReceiveOffer(offer, fromPeerId);
+      console.log('receive-offer', { offer, fromPeerId });
     });
 
-    socket.on('receive-answer', async ({ answer }) => {
+    socket.on('receive-answer', async ({ answer, fromPeerId }) => {
+      console.log('Received answer from', fromPeerId);
       if (peerConnection) {
         await peerConnection.setRemoteDescription(answer);
       }
+      console.log('receive-answer', { answer, fromPeerId });
     });
 
-    socket.on('ice-candidate', async ({ candidate }) => {
+    socket.on('ice-candidate', async ({ candidate, fromPeerId }) => {
+      console.log('Received candidate from', fromPeerId);
       if (peerConnection) {
         await peerConnection.addIceCandidate(candidate);
       }
+      console.log('ice-candidate', { candidate, fromPeerId });
     });
 
     return () => {
@@ -127,6 +139,7 @@ export default function P2PRoom() {
   }, [roomId]);
 
   const initiatePeerConnection = async (targetPeerId: string) => {
+    console.log('initiatePeerConnection called with targetPeerId:', targetPeerId);
     if (peerConnection) {
       peerConnection.close();
     }
@@ -138,16 +151,20 @@ export default function P2PRoom() {
       ]
     });
 
-    // Create data channel for file transfer
-    const dc = pc.createDataChannel('fileTransfer', { 
-      ordered: true,
-      maxRetransmits: 3
-    });
-    setupDataChannel(dc);
-    setDataChannel(dc);
+    // Only the host should create the data channel
+    if (isHostRef.current) {
+      const dc = pc.createDataChannel('fileTransfer', { 
+        ordered: true,
+        maxRetransmits: 3
+      });
+      setupDataChannel(dc);
+      setDataChannel(dc);
+      console.log('Host created data channel');
+    }
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
+        console.log('Emitting ice-candidate to', targetPeerId);
         socketRef.current.emit('ice-candidate', {
           roomId,
           candidate: event.candidate,
@@ -157,21 +174,20 @@ export default function P2PRoom() {
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
-      if (pc.connectionState === 'failed') {
-        toast({
-          title: "Connection Failed",
-          description: "Unable to establish peer connection. Please try again.",
-          variant: "destructive",
-        });
-      }
+      console.log('PeerConnection state:', pc.connectionState);
+    };
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', pc.iceConnectionState);
+    };
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE gathering state:', pc.iceGatheringState);
     };
 
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      
       if (socketRef.current) {
+        console.log('Emitting send-offer to', targetPeerId);
         socketRef.current.emit('send-offer', {
           roomId,
           offer,
@@ -191,6 +207,7 @@ export default function P2PRoom() {
   };
 
   const handleReceiveOffer = async (offer: RTCSessionDescriptionInit, fromPeerId: string) => {
+    console.log('handleReceiveOffer called with fromPeerId:', fromPeerId);
     if (peerConnection) {
       peerConnection.close();
     }
@@ -202,14 +219,17 @@ export default function P2PRoom() {
       ]
     });
 
+    // Only the guest sets up the data channel in ondatachannel
     pc.ondatachannel = (event) => {
       const dc = event.channel;
       setupDataChannel(dc);
       setDataChannel(dc);
+      console.log('Guest received data channel');
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
+        console.log('Emitting ice-candidate to', fromPeerId);
         socketRef.current.emit('ice-candidate', {
           roomId,
           candidate: event.candidate,
@@ -219,27 +239,21 @@ export default function P2PRoom() {
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
-      if (pc.connectionState === 'connected') {
-        toast({
-          title: "Connected",
-          description: "Peer connection established successfully!",
-        });
-      } else if (pc.connectionState === 'failed') {
-        toast({
-          title: "Connection Failed",
-          description: "Unable to establish peer connection. Please try again.",
-          variant: "destructive",
-        });
-      }
+      console.log('PeerConnection state:', pc.connectionState);
+    };
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', pc.iceConnectionState);
+    };
+    pc.onicegatheringstatechange = () => {
+      console.log('ICE gathering state:', pc.iceGatheringState);
     };
 
     try {
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-
       if (socketRef.current) {
+        console.log('Emitting send-answer to', fromPeerId);
         socketRef.current.emit('send-answer', {
           roomId,
           answer,
@@ -259,10 +273,11 @@ export default function P2PRoom() {
   };
 
   const setupDataChannel = (dc: RTCDataChannel) => {
+    console.log('Setting up data channel:', dc.label, 'State:', dc.readyState);
     dc.binaryType = 'arraybuffer';
 
     dc.onopen = () => {
-      console.log('Data channel opened');
+      console.log('Data channel opened successfully');
       toast({
         title: "Connected",
         description: "Ready to transfer files!",
@@ -283,6 +298,7 @@ export default function P2PRoom() {
     };
 
     dc.onmessage = (event) => {
+      console.log('Data channel message received', event);
       try {
         const data = JSON.parse(event.data);
         
@@ -341,6 +357,16 @@ export default function P2PRoom() {
         console.error('Error parsing message:', error);
       }
     };
+
+    dc.onbufferedamountlow = () => {
+      console.log('Data channel bufferedAmountLow event');
+    };
+
+    // Log all state changes
+    dc.addEventListener('open', () => console.log('Data channel event: open'));
+    dc.addEventListener('close', () => console.log('Data channel event: close'));
+    dc.addEventListener('error', (e) => console.log('Data channel event: error', e));
+    dc.addEventListener('message', (e) => console.log('Data channel event: message', e));
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,6 +389,7 @@ export default function P2PRoom() {
     }
 
     console.log('Starting file transfer:', selectedFile.name, selectedFile.size);
+    console.log('DataChannel state:', dataChannel.readyState);
 
     // Send file metadata first
     const metadata = {
