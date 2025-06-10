@@ -34,8 +34,6 @@ interface P2PFileSenderProps {
 type ConnectionState = 'idle' | 'waiting' | 'connecting' | 'connected' | 'transferring' | 'completed' | 'error';
 
 export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2PFileSenderProps) {
-  console.log('🚀 P2PFileSender initialized', { initialRoomId, isReceiver });
-  
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -48,6 +46,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   const [error, setError] = useState<string>('');
   const [showTechnicalInfo, setShowTechnicalInfo] = useState(false);
   const [peerCount, setPeerCount] = useState(0);
+  const [receivedFile, setReceivedFile] = useState<{ blob: Blob; name: string } | null>(null);
   
   // WebRTC and Socket management
   const [webrtcManager] = useState(() => {
@@ -57,6 +56,28 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   const [peerId, setPeerId] = useState<string>('');
 
   useEffect(() => {
+    console.log('🚀 P2PFileSender initialized', { initialRoomId, isReceiver });
+    
+    webrtcManager.onProgress(setTransferProgress);
+    webrtcManager.onConnectionStateChange((state) => {
+      if (state === 'connected') setConnectionState('connected');
+      if (state === 'disconnected' || state === 'failed') setConnectionState('error');
+    });
+
+    // Setup file received handler
+    webrtcManager.onFileReceived((file, fileName) => {
+      if (file) {
+        console.log(`✅ File received: ${fileName}`, file);
+        toast({
+          title: "File Received",
+          description: `${fileName} has been successfully downloaded.`,
+        });
+        setConnectionState('completed');
+        setReceivedFile({ blob: file, name: fileName });
+        downloadFile(file, fileName);
+      }
+    });
+
     if (initialRoomId && isReceiver) {
       joinRoom(initialRoomId);
     }
@@ -197,8 +218,8 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         // Sender creates offer
         console.log('📤 Sender creating WebRTC offer for peer:', joinedPeerId);
         try {
-          webrtcManager.createDataChannel();
-          console.log('📺 Data channel created');
+          webrtcManager.createDataChannels();
+          console.log('📺 Data channels created');
           const offer = await webrtcManager.createOffer();
           console.log('📨 WebRTC offer created, sending to peer');
           socket.emit('webrtc-offer', {
@@ -291,38 +312,6 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         setPeerId('');
       }
     });
-
-    // WebRTC progress and file handling
-    webrtcManager.onProgress((progress) => {
-      console.log('📈 Transfer progress:', `${progress.percentage.toFixed(1)}%`, `${formatBytes(progress.bytesTransferred)}/${formatBytes(progress.fileSize)}`);
-      setTransferProgress(progress);
-      if (progress.percentage < 100) {
-        setConnectionState('transferring');
-      }
-    });
-
-    webrtcManager.onFileReceived((blob, fileName) => {
-      console.log('📦 File received successfully:', fileName, 'Size:', formatBytes(blob.size));
-      setConnectionState('completed');
-      downloadFile(blob, fileName);
-      
-      toast({
-        title: "File Received",
-        description: `${fileName} has been downloaded`,
-      });
-    });
-
-    webrtcManager.onConnectionStateChange((state) => {
-      console.log('🔗 WebRTC connection state changed:', state);
-      if (state === 'connected' && connectionState !== 'transferring') {
-        console.log('✅ P2P connection fully established and ready for transfer');
-        setConnectionState('connected');
-      } else if (state === 'failed' || state === 'disconnected') {
-        console.log('💔 WebRTC connection failed or disconnected');
-        setConnectionState('error');
-        setError('Connection lost');
-      }
-    });
   };
 
   const handleSendFile = async () => {
@@ -361,36 +350,20 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   };
 
   const sendFile = async () => {
-    if (!selectedFile || webrtcManager.getConnectionState() !== 'connected') {
-      console.log('❌ Cannot send file - no file selected or not connected');
-      return;
-    }
-
-    console.log('📤 Starting file transfer:', selectedFile.name);
-    try {
-      setConnectionState('transferring');
+    if (!selectedFile || !webrtcManager) return;
       console.log('🚀 Initiating file send via WebRTC data channel');
+    setConnectionState('transferring');
+    try {
       await webrtcManager.sendFile(selectedFile);
-      
-      // Wait for transfer to complete
-      setTimeout(() => {
-        if (transferProgress?.percentage === 100) {
-          console.log('✅ File transfer completed successfully');
+      console.log('✅ File send process completed on sender side');
           setConnectionState('completed');
-          toast({
-            title: "Transfer Complete",
-            description: `${selectedFile.name} has been sent successfully`,
-          });
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error('❌ File transfer failed:', error);
-      setError('Failed to transfer file');
+    } catch (err: any) {
+      console.error('❌ File transfer failed:', err);
+      setError(`File transfer failed: ${err.message}`);
       setConnectionState('error');
       toast({
-        title: "Transfer Failed",
-        description: "Failed to transfer file",
+        title: "Transfer Error",
+        description: err.message,
         variant: "destructive"
       });
     }
@@ -594,8 +567,8 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                 <>
                   {/* File Info */}
                   <div className="flex items-center p-4 bg-blue-50 border border-blue-100 rounded-lg mb-4">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">{transferProgress.fileName}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 break-all">{transferProgress.fileName}</p>
                       <p className="text-sm text-gray-500">
                         {formatBytes(transferProgress.fileSize)} • {transferProgress.fileName.split('.').pop()?.toUpperCase()} Document
                       </p>
@@ -639,7 +612,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Transfer Complete!</h3>
               <p className="text-gray-600 mb-4">Your file has been downloaded successfully</p>
-              <Button variant="outline" onClick={() => webrtcManager.downloadLastFile()}>
+              <Button onClick={() => receivedFile && downloadFile(receivedFile.blob, receivedFile.name)}>
                 <Download className="mr-2 h-4 w-4" />
                 Download Again
               </Button>
@@ -670,25 +643,31 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Header Section */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">P2P File Sender</h1>
+        <p className="text-gray-600">Share files directly between devices using WebRTC</p>
+      </div>
+
       {/* File Selection Card */}
-      <Card className="border-0 shadow-lg">
+      <Card className="mb-6">
         <CardContent className="pt-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-            <Upload className="text-blue-500 mr-2" />
+            <Upload className="text-primary mr-2" />
             Select File to Send
           </h2>
           
           {/* File Drop Zone */}
           <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50/50"
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
             onDrop={handleFileDrop}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-2">Drag and drop your file here, or</p>
-            <Button variant="outline" className="bg-white">
+            <Button variant="outline">
               Choose File
             </Button>
             <input 
@@ -701,19 +680,19 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
           {/* Selected File Display */}
           {selectedFile && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg flex items-center justify-between border border-blue-100">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-white text-sm font-medium">
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+              <div className="flex items-center min-w-0">
+                <div className="w-8 h-8 bg-primary rounded flex items-center justify-center mr-3 flex-shrink-0">
+                  <span className="text-white text-xs font-medium">
                     {selectedFile.name.split('.').pop()?.substring(0, 2).toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-800">{selectedFile.name}</p>
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 break-all">{selectedFile.name}</p>
                   <p className="text-sm text-gray-500">{formatBytes(selectedFile.size)}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={removeFile} className="text-gray-500 hover:text-red-500">
+              <Button variant="ghost" size="sm" onClick={removeFile}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -721,7 +700,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
           {/* Send Button */}
           <Button 
-            className="w-full mt-4 bg-blue-500 hover:bg-blue-600" 
+            className="w-full mt-4" 
             onClick={handleSendFile}
             disabled={!selectedFile || connectionState === 'transferring'}
           >
@@ -733,10 +712,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Share Link Card */}
       {shareableLink && (
-        <Card className="border-0 shadow-lg">
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <Share2 className="text-blue-500 mr-2" />
+              <Share2 className="text-primary mr-2" />
               Share This Link
             </h2>
 
@@ -750,7 +729,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                     readOnly 
                     className="flex-1 rounded-r-none bg-gray-50 font-mono text-sm"
                   />
-                  <Button onClick={copyLink} className="rounded-l-none bg-blue-500 hover:bg-blue-600">
+                  <Button onClick={copyLink} className="rounded-l-none">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -759,14 +738,14 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                 {/* Room ID */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Room ID</label>
-                  <Badge variant="secondary" className="font-mono bg-gray-100">{roomId}</Badge>
+                  <Badge variant="secondary" className="font-mono">{roomId}</Badge>
                 </div>
               </div>
 
               {/* QR Code Section */}
               <div className="text-center">
                 <label className="block text-sm font-medium text-gray-700 mb-2">QR Code</label>
-                <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg">
                   <QRCodeSVG value={shareableLink} size={128} />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">Scan to open link</p>
@@ -778,27 +757,36 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Connection Status Card */}
       {connectionState !== 'idle' && (
-        <Card className="border-0 shadow-lg">
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <Wifi className="text-blue-500 mr-2" />
+              <Wifi className="text-primary mr-2" />
               Connection Status
             </h2>
 
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <div className="flex items-center mb-4">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  connectionState === 'connected' || connectionState === 'transferring' || connectionState === 'completed'
-                    ? 'bg-green-500'
-                    : connectionState === 'error'
-                    ? 'bg-red-500'
-                    : 'bg-orange-500'
-                }`} />
-                <span className="font-medium text-gray-700">
-                  {getConnectionStatusInfo().text}
-                </span>
+            {/* Status Indicators */}
+            <div className="space-y-4">
+              {(() => {
+                const { icon: StatusIcon, text, color } = getConnectionStatusInfo();
+                return (
+                  <div className={`flex items-center p-3 rounded-lg border ${
+                    connectionState === 'waiting' ? 'bg-orange-50 border-orange-200' :
+                    connectionState === 'connecting' ? 'bg-blue-50 border-blue-200' :
+                    connectionState === 'connected' || connectionState === 'completed' ? 'bg-green-50 border-green-200' :
+                    connectionState === 'error' ? 'bg-red-50 border-red-200' :
+                    'bg-gray-50 border-gray-200'
+                  }`}>
+                    {connectionState === 'waiting' || connectionState === 'connecting' ? (
+                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-3 animate-pulse" />
+                    ) : (
+                      <StatusIcon className={`mr-3 ${color}`} />
+                    )}
+                    <span className={`font-medium ${color}`}>{text}</span>
                   </div>
+                );
+              })()}
 
+              {/* WebRTC Connection Steps */}
               <div className="space-y-2">
                 <div className="flex items-center text-sm">
                   <CheckCircle className="text-green-500 mr-2 h-4 w-4" />
@@ -840,10 +828,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Transfer Progress Card */}
       {transferProgress && connectionState === 'transferring' && (
-        <Card className="border-0 shadow-lg">
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <ArrowRightLeft className="text-blue-500 mr-2" />
+              <ArrowRightLeft className="text-primary mr-2" />
               File Transfer
             </h2>
 
@@ -851,14 +839,14 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
               {/* Progress Bar */}
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Sending {transferProgress.fileName}</span>
+                  <span className="break-all">Sending {transferProgress.fileName}</span>
                   <span>{Math.round(transferProgress.percentage)}%</span>
                 </div>
-                <Progress value={transferProgress.percentage} className="h-2" />
+                <Progress value={transferProgress.percentage} />
               </div>
 
               {/* Transfer Details */}
-              <div className="grid grid-cols-2 gap-4 text-sm bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Speed:</span>
                   <span className="font-medium ml-1">{formatSpeed(transferProgress.speed)}</span>
@@ -883,7 +871,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Error Handling */}
       {connectionState === 'error' && (
-        <Card className="border-0 shadow-lg border-red-200">
+        <Card className="border-red-200 mb-6">
           <CardContent className="pt-6">
             <div className="flex items-start">
               <AlertCircle className="text-red-500 text-xl mr-3 mt-1" />
@@ -900,8 +888,8 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         </Card>
       )}
 
-      {/* Technical Information */}
-      <Card className="border-0 shadow-lg">
+      {/* Technical Info (Collapsible) */}
+      <Card>
         <CardContent className="pt-6">
           <Button 
             variant="ghost" 
@@ -937,6 +925,28 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
           )}
         </CardContent>
       </Card>
+
+      {/* Transfer complete for sender */}
+      {connectionState === 'completed' && !isReceiver && (
+        <Card className="mb-6">
+          <CardContent className="pt-6 text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Transfer Complete!</h2>
+            <p className="text-gray-600 mb-4 break-all">
+              <span className="font-medium">{selectedFile?.name}</span> was sent successfully.
+            </p>
+            <Button onClick={() => {
+              setSelectedFile(null);
+              setConnectionState('idle');
+              setShareableLink('');
+              setTransferProgress(null);
+            }}>
+              <Upload className="mr-2 h-4 w-4" />
+              Send Another File
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
