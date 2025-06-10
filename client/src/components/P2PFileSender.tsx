@@ -19,7 +19,11 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  QrCode
+  QrCode,
+  FileText,
+  Image,
+  Video,
+  Archive
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { socketManager } from '@/lib/socket';
@@ -451,6 +455,15 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
     }
   };
 
+  const getFileIcon = (file: File) => {
+    const type = file.type;
+    if (type.startsWith('image/')) return <Image className="h-6 w-6 text-white" />;
+    if (type.startsWith('video/')) return <Video className="h-6 w-6 text-white" />;
+    if (type.includes('pdf') || type.includes('document')) return <FileText className="h-6 w-6 text-white" />;
+    if (type.includes('zip') || type.includes('rar')) return <Archive className="h-6 w-6 text-white" />;
+    return <FileText className="h-6 w-6 text-white" />;
+  };
+
   if (isReceiver) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -643,70 +656,62 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header Section */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">P2P File Sender</h1>
-        <p className="text-gray-600">Share files directly between devices using WebRTC</p>
-      </div>
-
+    <>
       {/* File Selection Card */}
       <Card className="mb-6">
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-            <Upload className="text-primary mr-2" />
-            Select File to Send
-          </h2>
+        <CardContent className="pt-8">
           
-          {/* File Drop Zone */}
-          <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
-            onDrop={handleFileDrop}
-            onDragOver={(e) => e.preventDefault()}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">Drag and drop your file here, or</p>
-            <Button variant="outline">
-              Choose File
-            </Button>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              className="hidden"
-              onChange={handleFileInputChange}
-            />
-          </div>
-
-          {/* Selected File Display */}
-          {selectedFile && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-              <div className="flex items-center min-w-0">
-                <div className="w-8 h-8 bg-primary rounded flex items-center justify-center mr-3 flex-shrink-0">
-                  <span className="text-white text-xs font-medium">
-                    {selectedFile.name.split('.').pop()?.substring(0, 2).toUpperCase()}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-800 break-all">{selectedFile.name}</p>
-                  <p className="text-sm text-gray-500">{formatBytes(selectedFile.size)}</p>
-                </div>
+          {!selectedFile ? (
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors cursor-pointer"
+              onDrop={handleFileDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="bg-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Upload className="h-8 w-8 text-white" />
               </div>
-              <Button variant="ghost" size="sm" onClick={removeFile}>
-                <X className="h-4 w-4" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Drop your file here</h3>
+              <p className="text-gray-600 mb-4">or click to browse</p>
+              <p className="text-sm text-gray-500 mb-6">Direct P2P, end-to-end encrypted file sharing</p>
+
+              <Button
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Choose File
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
+                <div className="bg-blue-500 p-3 rounded-lg mr-4">
+                  {getFileIcon(selectedFile)}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-800 break-all">{selectedFile.name}</h4>
+                  <p className="text-sm text-gray-600">{formatBytes(selectedFile.size)}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={removeFile}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <Button 
+                className="w-full bg-blue-500 hover:bg-blue-600" 
+                onClick={handleSendFile}
+                disabled={connectionState === 'transferring'}
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Send File
               </Button>
             </div>
           )}
-
-          {/* Send Button */}
-          <Button 
-            className="w-full mt-4" 
-            onClick={handleSendFile}
-            disabled={!selectedFile || connectionState === 'transferring'}
-          >
-            <Share2 className="mr-2 h-4 w-4" />
-            Send File
-          </Button>
         </CardContent>
       </Card>
 
@@ -888,44 +893,6 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         </Card>
       )}
 
-      {/* Technical Info (Collapsible) */}
-      <Card>
-        <CardContent className="pt-6">
-          <Button 
-            variant="ghost" 
-            className="w-full flex items-center justify-between p-0"
-            onClick={() => setShowTechnicalInfo(!showTechnicalInfo)}
-          >
-            <h3 className="text-lg font-semibold text-gray-800">Technical Information</h3>
-            {showTechnicalInfo ? <ChevronUp className="text-gray-400" /> : <ChevronDown className="text-gray-400" />}
-          </Button>
-          
-          {showTechnicalInfo && (
-            <div className="mt-4 space-y-4">
-              <Separator />
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Connection Details</h4>
-                  <div className="space-y-1 text-gray-600">
-                    <div>Protocol: <code className="bg-gray-100 px-1 rounded">WebRTC DataChannel</code></div>
-                    <div>Signaling: <code className="bg-gray-100 px-1 rounded">Socket.IO</code></div>
-                    <div>Encryption: <code className="bg-gray-100 px-1 rounded">DTLS/SRTP</code></div>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Transfer Info</h4>
-                  <div className="space-y-1 text-gray-600">
-                    <div>Chunk Size: <code className="bg-gray-100 px-1 rounded">16KB</code></div>
-                    <div>Storage: <code className="bg-gray-100 px-1 rounded">No server storage</code></div>
-                    <div>Direct P2P: <code className="bg-gray-100 px-1 rounded">End-to-end</code></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Transfer complete for sender */}
       {connectionState === 'completed' && !isReceiver && (
         <Card className="mb-6">
@@ -947,6 +914,6 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
           </CardContent>
         </Card>
       )}
-    </div>
+    </>
   );
 }
