@@ -40,7 +40,7 @@ export class WebRTCManager {
   private readonly MAX_RETRIES = 5;
 
   // Optimization properties
-  private readonly MAX_PARALLEL_CHANNELS = 4;
+  private readonly MAX_PARALLEL_CHANNELS = 5;
   private readonly CHUNK_SIZE = 260000; // Just under the 256KB limit to allow for headers
 
   constructor() {
