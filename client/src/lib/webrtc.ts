@@ -23,7 +23,8 @@ export class WebRTCManager {
   private onProgressCallback: ((progress: FileTransferProgress) => void) | null = null;
   private onFileReceivedCallback: ((file: Blob, fileName: string) => void) | null = null;
   private onConnectionStateChangeCallback: ((state: string) => void) | null = null;
-  
+  private lastReceivedFile: { blob: Blob; fileName: string } | null = null;
+
   // File transfer state
   private receivedChunks: Map<number, ArrayBuffer> = new Map();
   private expectedChunks = 0;
@@ -64,7 +65,9 @@ export class WebRTCManager {
     }
 
     this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
-      ordered: true
+      ordered: true,
+      maxRetransmits: 5, // 5 retransmissions
+      protocol: 'arraybuffer'  // Explicit binary data type
     });
 
     this.setupDataChannel(this.dataChannel);
@@ -91,7 +94,7 @@ export class WebRTCManager {
 
   onDataChannel(callback: (channel: RTCDataChannel) => void) {
     if (!this.peerConnection) return;
-    
+
     this.peerConnection.ondatachannel = (event) => {
       this.dataChannel = event.channel;
       this.setupDataChannel(this.dataChannel);
@@ -138,7 +141,7 @@ export class WebRTCManager {
 
   onIceCandidate(callback: (candidate: RTCIceCandidate) => void) {
     if (!this.peerConnection) return;
-    
+
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         callback(event.candidate);
@@ -151,12 +154,13 @@ export class WebRTCManager {
       throw new Error('Data channel not ready');
     }
 
-    const chunkSize = 16384; // 16KB chunks
+    const chunkSize = 256 * 1024; // 256KB chunks
     const totalChunks = Math.ceil(file.size / chunkSize);
-    
+
     this.transferStartTime = Date.now();
     this.lastProgressTime = this.transferStartTime;
     this.lastProgressBytes = 0;
+    this.expectedChunks = totalChunks; // Add this to track expected chunks
 
     // Send file metadata first
     const metadata = {
@@ -166,7 +170,9 @@ export class WebRTCManager {
       fileType: file.type,
       totalChunks
     };
-    
+
+    // Wait for buffer availability before sending metadata
+    await this.waitForBufferAvailability();
     this.dataChannel.send(JSON.stringify(metadata));
 
     // Send file in chunks
@@ -186,21 +192,25 @@ export class WebRTCManager {
         fileType: file.type
       };
 
+      // Wait if buffer is getting full
+      await this.waitForBufferAvailability();
+
       // Send chunk metadata followed by chunk data
       this.dataChannel.send(JSON.stringify({
         type: 'file-chunk-metadata',
         ...chunkData,
         data: undefined // Don't include data in metadata
       }));
-      
+
       this.dataChannel.send(arrayBuffer);
 
       // Update progress
       const bytesTransferred = end;
       this.updateProgress(file.name, file.size, bytesTransferred);
-      
+
       // Small delay to prevent overwhelming the channel
-      await new Promise(resolve => setTimeout(resolve, 1));
+      //await new Promise(resolve => setTimeout(resolve, 1));
+
     }
 
     // Send completion signal
@@ -210,11 +220,29 @@ export class WebRTCManager {
     }));
   }
 
+  // Add this new helper method to your class
+  private async waitForBufferAvailability(): Promise<void> {
+    if (!this.dataChannel) return;
+
+    // Wait if buffer exceeds 1MB
+    const BUFFER_THRESHOLD = 1024 * 1024;
+    await new Promise<void>(resolve => {
+      const checkBuffer = () => {
+        if (this.dataChannel!.bufferedAmount <= BUFFER_THRESHOLD) {
+          resolve();
+        } else {
+          setTimeout(checkBuffer, 10);
+        }
+      };
+      checkBuffer();
+    });
+  }
+
   private updateProgress(fileName: string, fileSize: number, bytesTransferred: number) {
     const now = Date.now();
     const timeDiff = (now - this.lastProgressTime) / 1000; // seconds
     const bytesDiff = bytesTransferred - this.lastProgressBytes;
-    
+
     const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0;
     const percentage = (bytesTransferred / fileSize) * 100;
     const remainingBytes = fileSize - bytesTransferred;
@@ -230,7 +258,7 @@ export class WebRTCManager {
     };
 
     this.onProgressCallback?.(progress);
-    
+
     this.lastProgressTime = now;
     this.lastProgressBytes = bytesTransferred;
   }
@@ -239,20 +267,30 @@ export class WebRTCManager {
     if (typeof data === 'string') {
       try {
         const message = JSON.parse(data);
-        
+
         if (message.type === 'file-metadata') {
           this.receivedChunks.clear();
           this.expectedChunks = message.totalChunks;
           this.currentFileName = message.fileName;
           this.currentFileSize = message.fileSize;
           this.currentFileType = message.fileType;
+          // Initialize progress tracking
           this.transferStartTime = Date.now();
           this.lastProgressTime = this.transferStartTime;
           this.lastProgressBytes = 0;
+
+          // Immediate progress update
+          this.updateProgress(this.currentFileName, this.currentFileSize, 0);
+
         } else if (message.type === 'file-chunk-metadata') {
           // Chunk metadata received, actual data comes next as ArrayBuffer
         } else if (message.type === 'file-complete') {
-          this.reconstructAndDownloadFile();
+          // Verify all chunks received before reconstruction
+          if (this.receivedChunks.size === this.expectedChunks) {
+            this.reconstructAndDownloadFile();
+          } else {
+            console.warn(`File transfer incomplete. Received ${this.receivedChunks.size} of ${this.expectedChunks} chunks`);
+          }
         }
       } catch (error) {
         console.error('Error parsing message:', error);
@@ -261,11 +299,10 @@ export class WebRTCManager {
       // This is chunk data
       const chunkIndex = this.receivedChunks.size;
       this.receivedChunks.set(chunkIndex, data);
-      
-      // Update progress
-      const bytesReceived = Array.from(this.receivedChunks.values())
-        .reduce((total, chunk) => total + chunk.byteLength, 0);
-      
+
+      // More efficient progress calculation
+      let bytesReceived = 0;
+      this.receivedChunks.forEach(chunk => bytesReceived += chunk.byteLength);
       this.updateProgress(this.currentFileName, this.currentFileSize, bytesReceived);
     }
   }
@@ -286,6 +323,7 @@ export class WebRTCManager {
     }
 
     const blob = new Blob(chunks, { type: this.currentFileType });
+    this.lastReceivedFile = { blob, fileName: this.currentFileName };
     this.onFileReceivedCallback?.(blob, this.currentFileName);
 
     // Reset state
@@ -294,6 +332,23 @@ export class WebRTCManager {
     this.currentFileName = "";
     this.currentFileSize = 0;
     this.currentFileType = "";
+  }
+
+  downloadLastFile() {
+    if (!this.lastReceivedFile) {
+      console.warn('No file available to download');
+      return;
+    }
+
+    const { blob, fileName } = this.lastReceivedFile;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   onProgress(callback: (progress: FileTransferProgress) => void) {
@@ -313,7 +368,7 @@ export class WebRTCManager {
       this.dataChannel.close();
       this.dataChannel = null;
     }
-    
+
     if (this.peerConnection) {
       this.peerConnection.close();
       this.peerConnection = null;

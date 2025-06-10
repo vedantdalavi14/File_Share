@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
@@ -63,8 +64,23 @@ app.use((req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Schedule a job to delete expired files every hour.
+  const ONE_HOUR = 60 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      log("⏳ Running scheduled job: Deleting expired files...");
+      const deletedCount = await storage.deleteExpiredFiles();
+      if (deletedCount > 0) {
+        log(`✅ Successfully deleted ${deletedCount} expired files.`);
+      } else {
+        log("👍 No expired files to delete.");
+      }
+    } catch (error) {
+      console.error("❌ Error during scheduled file deletion:", error);
+    }
+  }, ONE_HOUR);
 })();

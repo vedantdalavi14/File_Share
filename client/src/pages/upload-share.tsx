@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 import { 
   ArrowLeft, 
   Upload, 
@@ -27,6 +28,7 @@ export default function UploadShare() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [isComplete, setIsComplete] = useState(false);
 
@@ -55,31 +57,95 @@ export default function UploadShare() {
     }
   }, [handleFileSelect]);
 
-  const simulateUpload = async () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
-    
-    console.log('🚀 Starting upload simulation for:', selectedFile.name);
+
     setIsUploading(true);
-    
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      setUploadProgress(i);
-      console.log('📊 Upload progress:', i + '%');
-      await new Promise(resolve => setTimeout(resolve, 200));
+    setUploadProgress(0);
+
+    try {
+      // Step 1: Get a signed URL from our server
+      const initResponse = await fetch('/api/files/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileType: selectedFile.type,
+        }),
+      });
+
+      if (!initResponse.ok) {
+        throw new Error('Could not initiate upload with the server.');
+      }
+      
+      const { signedUrl, filePath, uuid } = await initResponse.json();
+
+      // Step 2: Upload the file directly to Supabase using the signed URL
+      // We use XMLHttpRequest here to get progress tracking, which is not
+      // directly available in supabase.storage.uploadToSignedUrl.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', signedUrl, true);
+        xhr.setRequestHeader('Content-Type', selectedFile.type);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            setUploadProgress(percentComplete);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('A network error occurred during the direct upload.'));
+        };
+
+        xhr.send(selectedFile);
+      });
+      
+      // Step 3: Finalize the upload with our server
+      const finalizeResponse = await fetch('/api/files/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uuid,
+          filePath,
+          originalName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type,
+        }),
+      });
+
+      if (!finalizeResponse.ok) {
+        throw new Error('Server could not finalize the upload.');
+      }
+
+      const { shareLink: finalShareLink } = await finalizeResponse.json();
+      
+      setShareLink(finalShareLink);
+      setIsComplete(true);
+      toast({
+        title: "Upload Complete",
+        description: "Your file is ready to share",
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({
+        title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
     }
-    
-    // Simulate generating share link
-    const mockShareLink = `${window.location.origin}/share/mock-${Date.now()}`;
-    setShareLink(mockShareLink);
-    setIsUploading(false);
-    setIsComplete(true);
-    
-    console.log('✅ Upload complete! Share link:', mockShareLink);
-    
-    toast({
-      title: "Upload Complete",
-      description: "Your file is ready to share",
-    });
   };
 
   const copyShareLink = async () => {
@@ -194,11 +260,20 @@ export default function UploadShare() {
                 {/* Upload Progress */}
                 {isUploading && (
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700">Uploading...</span>
-                      <span className="text-sm text-gray-600">{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} className="h-2" />
+                    {isProcessing ? (
+                      <>
+                        <span className="text-sm font-medium text-gray-700">Securing file... Please wait.</span>
+                        <Progress value={100} className="h-2 animate-pulse bg-purple-400" />
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-700">Uploading...</span>
+                          <span className="text-sm text-gray-600">{Math.round(uploadProgress)}%</span>
+                        </div>
+                        <Progress value={uploadProgress} className="h-2" />
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -242,7 +317,7 @@ export default function UploadShare() {
                 {/* Upload Button */}
                 {!isUploading && !isComplete && (
                   <Button 
-                    onClick={simulateUpload}
+                    onClick={handleUpload}
                     className="w-full bg-purple-500 hover:bg-purple-600"
                     size="lg"
                   >

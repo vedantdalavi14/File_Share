@@ -639,9 +639,9 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Transfer Complete!</h3>
               <p className="text-gray-600 mb-4">Your file has been downloaded successfully</p>
-              <Button onClick={() => window.open('', '_blank')}>
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Open Downloads
+              <Button variant="outline" onClick={() => webrtcManager.downloadLastFile()}>
+                <Download className="mr-2 h-4 w-4" />
+                Download Again
               </Button>
             </CardContent>
           </Card>
@@ -670,31 +670,25 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header Section */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">P2P File Sender</h1>
-        <p className="text-gray-600">Share files directly between devices using WebRTC</p>
-      </div>
-
+    <div className="space-y-6">
       {/* File Selection Card */}
-      <Card className="mb-6">
+      <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-            <Upload className="text-primary mr-2" />
+            <Upload className="text-blue-500 mr-2" />
             Select File to Send
           </h2>
           
           {/* File Drop Zone */}
           <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50/50"
             onDrop={handleFileDrop}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-2">Drag and drop your file here, or</p>
-            <Button variant="outline">
+            <Button variant="outline" className="bg-white">
               Choose File
             </Button>
             <input 
@@ -707,10 +701,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
           {/* Selected File Display */}
           {selectedFile && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg flex items-center justify-between border border-blue-100">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-primary rounded flex items-center justify-center mr-3">
-                  <span className="text-white text-xs font-medium">
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+                  <span className="text-white text-sm font-medium">
                     {selectedFile.name.split('.').pop()?.substring(0, 2).toUpperCase()}
                   </span>
                 </div>
@@ -719,7 +713,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                   <p className="text-sm text-gray-500">{formatBytes(selectedFile.size)}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={removeFile}>
+              <Button variant="ghost" size="sm" onClick={removeFile} className="text-gray-500 hover:text-red-500">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -727,7 +721,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
           {/* Send Button */}
           <Button 
-            className="w-full mt-4" 
+            className="w-full mt-4 bg-blue-500 hover:bg-blue-600" 
             onClick={handleSendFile}
             disabled={!selectedFile || connectionState === 'transferring'}
           >
@@ -739,10 +733,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Share Link Card */}
       {shareableLink && (
-        <Card className="mb-6">
+        <Card className="border-0 shadow-lg">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <Share2 className="text-primary mr-2" />
+              <Share2 className="text-blue-500 mr-2" />
               Share This Link
             </h2>
 
@@ -756,7 +750,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                     readOnly 
                     className="flex-1 rounded-r-none bg-gray-50 font-mono text-sm"
                   />
-                  <Button onClick={copyLink} className="rounded-l-none">
+                  <Button onClick={copyLink} className="rounded-l-none bg-blue-500 hover:bg-blue-600">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -765,14 +759,14 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                 {/* Room ID */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Room ID</label>
-                  <Badge variant="secondary" className="font-mono">{roomId}</Badge>
+                  <Badge variant="secondary" className="font-mono bg-gray-100">{roomId}</Badge>
                 </div>
               </div>
 
               {/* QR Code Section */}
               <div className="text-center">
                 <label className="block text-sm font-medium text-gray-700 mb-2">QR Code</label>
-                <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg">
+                <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                   <QRCodeSVG value={shareableLink} size={128} />
                 </div>
                 <p className="text-xs text-gray-500 mt-2">Scan to open link</p>
@@ -784,36 +778,27 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Connection Status Card */}
       {connectionState !== 'idle' && (
-        <Card className="mb-6">
+        <Card className="border-0 shadow-lg">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <Wifi className="text-primary mr-2" />
+              <Wifi className="text-blue-500 mr-2" />
               Connection Status
             </h2>
 
-            {/* Status Indicators */}
-            <div className="space-y-4">
-              {(() => {
-                const { icon: StatusIcon, text, color } = getConnectionStatusInfo();
-                return (
-                  <div className={`flex items-center p-3 rounded-lg border ${
-                    connectionState === 'waiting' ? 'bg-orange-50 border-orange-200' :
-                    connectionState === 'connecting' ? 'bg-blue-50 border-blue-200' :
-                    connectionState === 'connected' || connectionState === 'completed' ? 'bg-green-50 border-green-200' :
-                    connectionState === 'error' ? 'bg-red-50 border-red-200' :
-                    'bg-gray-50 border-gray-200'
-                  }`}>
-                    {connectionState === 'waiting' || connectionState === 'connecting' ? (
-                      <div className="w-3 h-3 bg-orange-500 rounded-full mr-3 animate-pulse" />
-                    ) : (
-                      <StatusIcon className={`mr-3 ${color}`} />
-                    )}
-                    <span className={`font-medium ${color}`}>{text}</span>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+              <div className="flex items-center mb-4">
+                <div className={`w-3 h-3 rounded-full mr-2 ${
+                  connectionState === 'connected' || connectionState === 'transferring' || connectionState === 'completed'
+                    ? 'bg-green-500'
+                    : connectionState === 'error'
+                    ? 'bg-red-500'
+                    : 'bg-orange-500'
+                }`} />
+                <span className="font-medium text-gray-700">
+                  {getConnectionStatusInfo().text}
+                </span>
                   </div>
-                );
-              })()}
 
-              {/* WebRTC Connection Steps */}
               <div className="space-y-2">
                 <div className="flex items-center text-sm">
                   <CheckCircle className="text-green-500 mr-2 h-4 w-4" />
@@ -855,10 +840,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Transfer Progress Card */}
       {transferProgress && connectionState === 'transferring' && (
-        <Card className="mb-6">
+        <Card className="border-0 shadow-lg">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-              <ArrowRightLeft className="text-primary mr-2" />
+              <ArrowRightLeft className="text-blue-500 mr-2" />
               File Transfer
             </h2>
 
@@ -869,11 +854,11 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                   <span>Sending {transferProgress.fileName}</span>
                   <span>{Math.round(transferProgress.percentage)}%</span>
                 </div>
-                <Progress value={transferProgress.percentage} />
+                <Progress value={transferProgress.percentage} className="h-2" />
               </div>
 
               {/* Transfer Details */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <div>
                   <span className="text-gray-500">Speed:</span>
                   <span className="font-medium ml-1">{formatSpeed(transferProgress.speed)}</span>
@@ -898,7 +883,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
       {/* Error Handling */}
       {connectionState === 'error' && (
-        <Card className="border-red-200 mb-6">
+        <Card className="border-0 shadow-lg border-red-200">
           <CardContent className="pt-6">
             <div className="flex items-start">
               <AlertCircle className="text-red-500 text-xl mr-3 mt-1" />
@@ -915,8 +900,8 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         </Card>
       )}
 
-      {/* Technical Info (Collapsible) */}
-      <Card>
+      {/* Technical Information */}
+      <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
           <Button 
             variant="ghost" 
