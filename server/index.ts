@@ -14,9 +14,7 @@ const port = process.env.PORT || 5000;
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://file-share-w2g2.onrender.com', 'http://file-share-w2g2.onrender.com']
-    : 'http://localhost:5173',
+  origin: true, // Allow all origins in development
   credentials: true
 }));
 
@@ -56,12 +54,20 @@ const server = createServer(app);
 // Initialize Socket.IO with CORS configuration
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production'
-      ? ['https://file-share-w2g2.onrender.com', 'http://file-share-w2g2.onrender.com']
-      : 'http://localhost:5173',
+    origin: true, // Allow all origins in development
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling']
+});
+
+// Add connection logging
+io.on('connection', (socket) => {
+  console.log('🔌 New client connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('🔌 Client disconnected:', socket.id);
+  });
 });
 
 (async () => {

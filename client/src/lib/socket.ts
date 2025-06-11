@@ -9,13 +9,18 @@ class SocketManager {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'file-share-w2g2.onrender.com'
-      : 'localhost:5000';
+    const host = window.location.hostname === 'localhost' 
+      ? 'localhost:5000'
+      : 'file-share-w2g2.onrender.com';
     const socketUrl = `${protocol}//${host}`;
     
+    console.log('🔌 Connecting to WebSocket at:', socketUrl);
+    
     this.socket = io(socketUrl, {
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 10000
     });
 
     return this.socket;
