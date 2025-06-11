@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 const app = express();
 app.use(express.json());
@@ -13,8 +15,8 @@ const port = process.env.PORT || 5000;
 // Enable CORS for all routes
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CLIENT_URL // Use environment variable for production
-    : 'http://localhost:5173', // Use localhost for development
+    ? ['https://file-share-w2g2.onrender.com', 'http://file-share-w2g2.onrender.com']
+    : 'http://localhost:5173',
   credentials: true
 }));
 
@@ -46,6 +48,20 @@ app.use((req, res, next) => {
   });
 
   next();
+});
+
+// Create HTTP server
+const server = createServer(app);
+
+// Initialize Socket.IO with CORS configuration
+const io = new Server(server, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production'
+      ? ['https://file-share-w2g2.onrender.com', 'http://file-share-w2g2.onrender.com']
+      : 'http://localhost:5173',
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
 (async () => {
