@@ -205,10 +205,11 @@ export default function UploadShare() {
           <CardContent className="pt-8">
             {!selectedFile ? (
               <div 
-                className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-purple-400 transition-colors"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-purple-400 transition-colors cursor-pointer"
                 onDrop={handleFileDrop}
                 onDragOver={(e) => e.preventDefault()}
                 onDragEnter={(e) => e.preventDefault()}
+                onClick={() => fileInputRef.current?.click()}
               >
                 <div className="bg-purple-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Upload className="h-8 w-8 text-white" />
@@ -218,7 +219,6 @@ export default function UploadShare() {
                 <p className="text-sm text-gray-500 mb-6">Supported: PDF, Images, Videos, Documents • Max: 100MB</p>
                 
                 <Button 
-                  onClick={() => fileInputRef.current?.click()}
                   className="bg-purple-500 hover:bg-purple-600"
                 >
                   Choose File

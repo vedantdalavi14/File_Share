@@ -662,12 +662,12 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         <CardContent className="pt-8">
           
           {!selectedFile ? (
-            <div
+          <div 
               className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-400 transition-colors cursor-pointer"
-              onDrop={handleFileDrop}
-              onDragOver={(e) => e.preventDefault()}
-              onClick={() => fileInputRef.current?.click()}
-            >
+            onDrop={handleFileDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onClick={() => fileInputRef.current?.click()}
+          >
               <div className="bg-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Upload className="h-8 w-8 text-white" />
               </div>
@@ -678,15 +678,15 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
               <Button
                 className="bg-blue-500 hover:bg-blue-600"
               >
-                Choose File
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFileInputChange}
-              />
-            </div>
+              Choose File
+            </Button>
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+          </div>
           ) : (
             <div className="space-y-6">
               <div className="flex items-center p-4 bg-gray-50 rounded-lg">
@@ -696,20 +696,20 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                 <div className="flex-1">
                   <h4 className="font-semibold text-gray-800 break-all">{selectedFile.name}</h4>
                   <p className="text-sm text-gray-600">{formatBytes(selectedFile.size)}</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={removeFile}>
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
-              
-              <Button 
-                className="w-full bg-blue-500 hover:bg-blue-600" 
-                onClick={handleSendFile}
-                disabled={connectionState === 'transferring'}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Send File
+              <Button variant="ghost" size="sm" onClick={removeFile}>
+                <X className="h-4 w-4" />
               </Button>
+            </div>
+
+          <Button 
+                className="w-full bg-blue-500 hover:bg-blue-600" 
+            onClick={handleSendFile}
+                disabled={connectionState === 'transferring'}
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            Send File
+          </Button>
             </div>
           )}
         </CardContent>

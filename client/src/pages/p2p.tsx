@@ -25,7 +25,9 @@ export default function P2P() {
         </div>
 
         {/* Main P2P Card */}
-        <P2PFileSender/>
+        <div className='shadow-lg'>
+          <P2PFileSender/>
+        </div>
 
 
         {/* Features Section */}
@@ -39,7 +41,7 @@ export default function P2P() {
 
           {/* Feature 2: Secure & Private */}
           <Card className="text-center p-6">
-            <Shield className="h-8 w-8 text-green-500 mx-auto mb-3" />
+            <Shield className="h-8 w-8 text-blue-500 mx-auto mb-3" />
             <h3 className="font-semibold text-gray-800 mb-2">Secure & Private</h3>
             <p className="text-sm text-gray-600">End-to-end encryption ensures only you and the recipient can see the files.</p>
           </Card>
