@@ -74,11 +74,10 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         console.log(`✅ File received: ${fileName}`, file);
         toast({
           title: "File Received",
-          description: `${fileName} has been successfully downloaded.`,
+          description: `${fileName} has been received successfully. Click the download button to save it.`,
         });
         setConnectionState('completed');
         setReceivedFile({ blob: file, name: fileName });
-        downloadFile(file, fileName);
       }
     });
 
@@ -607,11 +606,11 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
                 </>
               )}
 
-              {/* Auto-download Notice */}
-              <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg">
-                <p className="text-sm text-green-700 flex items-center">
+              {/* File Ready Notice */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <p className="text-sm text-blue-700 flex items-center">
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  File will automatically download when transfer is complete
+                  File is ready to download
                 </p>
               </div>
             </CardContent>
@@ -619,16 +618,27 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
         )}
 
         {/* Success State */}
-        {connectionState === 'completed' && (
+        {connectionState === 'completed' && isReceiver && (
           <Card className="text-center">
             <CardContent className="pt-6">
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Transfer Complete!</h3>
-              <p className="text-gray-600 mb-4">Your file has been downloaded successfully</p>
-              <Button onClick={() => receivedFile && downloadFile(receivedFile.blob, receivedFile.name)}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Again
-              </Button>
+              <p className="text-gray-600 mb-4">Your file has been received successfully</p>
+              <div className="space-y-4">
+                <div className="flex items-center p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 break-all line-clamp-2">{receivedFile?.name}</p>
+                    <p className="text-sm text-gray-500">{formatBytes(receivedFile?.blob.size || 0)}</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => receivedFile && downloadFile(receivedFile.blob, receivedFile.name)}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download File
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

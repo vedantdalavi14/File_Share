@@ -9,7 +9,10 @@ class SocketManager {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socketUrl = `${window.location.protocol}//${window.location.host}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? window.location.host 
+      : 'localhost:5000';
+    const socketUrl = `${protocol}//${host}`;
     
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling']

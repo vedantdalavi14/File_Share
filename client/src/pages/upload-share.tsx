@@ -16,8 +16,10 @@ import {
   CheckCircle,
   Clock,
   QrCode,
-  Shield
+  Shield,
+  Copy
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function UploadShare() {
   console.log('📂 Upload & Share page loaded');
@@ -239,8 +241,8 @@ export default function UploadShare() {
                   <div className="bg-purple-500 p-2 rounded-lg mr-4">
                     {getFileIcon(selectedFile)}
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-800">{selectedFile.name}</h4>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-800 break-all line-clamp-2">{selectedFile.name}</h4>
                     <p className="text-sm text-gray-600">{formatFileSize(selectedFile.size)}</p>
                   </div>
                   {!isUploading && !isComplete && (
@@ -277,38 +279,47 @@ export default function UploadShare() {
                   </div>
                 )}
 
-                {/* Success State */}
+                {/* Share Link and QR Code */}
                 {isComplete && shareLink && (
-                  <div className="space-y-4">
-                    <div className="flex items-center text-green-600">
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      <span className="font-medium">Upload Complete!</span>
-                    </div>
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <QrCode className="mr-2" />
+                      Share Your File
+                    </h3>
                     
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="text-sm font-medium text-gray-700">Share Link</label>
-                        <Button size="sm" variant="outline" onClick={copyShareLink}>
-                          Copy Link
-                        </Button>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Link Section */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Shareable Link</label>
+                        <div className="flex">
+                          <input 
+                            value={shareLink} 
+                            readOnly 
+                            className="flex-1 rounded-l-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
+                          />
+                          <Button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(shareLink);
+                              toast({
+                                title: "Link copied!",
+                                description: "Share this link with anyone to download your file.",
+                              });
+                            }}
+                            className="rounded-l-none"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Share this link with anyone to download your file</p>
                       </div>
-                      <div className="bg-white border rounded p-2 text-sm text-gray-600 break-all">
-                        {shareLink}
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="h-4 w-4 mr-2" />
-                        <span className="text-sm">24-hour expiry</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <QrCode className="h-4 w-4 mr-2" />
-                        <span className="text-sm">QR code sharing</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Shield className="h-4 w-4 mr-2" />
-                        <span className="text-sm">Secure links</span>
+                      {/* QR Code Section */}
+                      <div className="text-center">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">QR Code</label>
+                        <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg">
+                          <QRCodeSVG value={shareLink} size={128} />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Scan to open download link</p>
                       </div>
                     </div>
                   </div>

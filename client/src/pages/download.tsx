@@ -131,7 +131,7 @@ export default function DownloadPage() {
           <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <FileText className="h-10 w-10 text-purple-500 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-gray-800 dark:text-gray-200 break-words" title={fileDetails.fileName}>
+              <p className="font-semibold text-gray-800 dark:text-gray-200 break-all line-clamp-2" title={fileDetails.fileName}>
                 {fileDetails.fileName}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">{formatFileSize(fileDetails.fileSize)}</p>
