@@ -261,7 +261,10 @@ export class MemStorage implements IStorage {
 
 // Switch to database storage once DATABASE_URL is properly configured
 // For production, you would use this:
-// export const storage = new DatabaseStorage();
+export const storage = new DatabaseStorage();
 
 // For now, to ensure the app works immediately without a database connection string:
-export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
+// export const storage = process.env.DATABASE_URL ? new DatabaseStorage() : new MemStorage();
+
+// Run every hour
+setInterval(() => storage.deleteExpiredFiles(), 60 * 60 * 1000);
