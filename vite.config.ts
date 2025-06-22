@@ -33,6 +33,6 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    allowedHosts: ['file-share-w2g2.onrender.com'], // ✅ Add this line
+    allowedHosts: ['file-share-w2g2.onrender.com', 'localhost', '127.0.0.1'],
   },
 });
