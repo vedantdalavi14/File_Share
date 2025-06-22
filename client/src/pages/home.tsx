@@ -48,26 +48,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 pt-4 pb-8 max-w-6xl">
 
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-blue-500 w-12 h-12 rounded-xl flex items-center justify-center mr-3">
-              <Shield className="h-7 w-7 text-white" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-2xl font-bold text-gray-800">SnapShare Hybrid</h1>
-              <p className="text-sm text-gray-600">Secure File Sharing Platform</p>
-            </div>
-            <div className="ml-auto">
-              <Badge variant="outline" className="text-xs">
-                <Shield className="h-3 w-3 mr-1" />
-                End-to-end encrypted
-              </Badge>
-            </div>
-          </div>
-
           <h2 className="text-4xl font-bold text-gray-800 mb-4">
             Share Files <span className="text-blue-500">Securely</span>
           </h2>
@@ -78,14 +62,14 @@ export default function Home() {
         </div>
 
         {/* --- Bidirectional P2P Main Feature --- */}
-        <Card className="group transition-all duration-300 border-0 shadow-lg mb-12 bg-white hover:shadow-2xl">
+        <Card className="group transition-all duration-300 border-0 shadow-lg mb-12 bg-white hover:shadow-2xl hover:-translate-y-2 hover:shadow-red-500/20">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="md:w-1/3 flex-shrink-0">
                 <img 
                   src="ope_ope_no_mi1.png" 
                   alt="Bidirectional Share" 
-                  className="rounded-2xl mx-auto w-48 h-48 object-cover group-hover:scale-105 transition-transform duration-300" 
+                  className="rounded-2xl mx-auto w-48 h-48 object-cover group-hover:scale-110 transition-transform duration-500 ease-out" 
                 />
               </div>
               <div className="md:w-2/3 text-center md:text-left">
@@ -142,7 +126,7 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-8 mb-12">
 
           {/* P2P Share Option */}
-          <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg">
+          <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg hover:-translate-y-1.5 hover:shadow-blue-500/20">
             <CardContent className="p-8">
               <div className="text-center">
                 <div className="bg-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
@@ -180,7 +164,7 @@ export default function Home() {
           </Card>
 
           {/* Upload & Share Option */}
-          <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg">
+          <Card className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg hover:-translate-y-1.5 hover:shadow-purple-500/20">
             <CardContent className="p-8">
               <div className="text-center">
                 <div className="bg-purple-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
@@ -269,13 +253,13 @@ export default function Home() {
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100">
                 <Upload className="w-5 h-5 text-purple-600" />
               </div>
-              <h3 className="ml-3 text-lg font-bold text-gray-800">SnapShare Hybrid</h3>
+              <h3 className="ml-3 text-lg font-bold text-gray-800">File Share</h3>
             </div>
             <p className="text-gray-600 mb-6 text-sm">
               Secure, private, and easy file sharing. No account required.
             </p>
             <div className="text-sm text-gray-500 space-x-4">
-              <span>© 2024 SnapShare</span>
+              <span>© 2024 File Share</span>
               <span className="text-gray-300">•</span>
               <Link href="/privacy" className="hover:text-gray-800">Privacy Policy</Link>
               <span className="text-gray-300">•</span>

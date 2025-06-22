@@ -8,7 +8,11 @@ export default function BidirectionalP2PPage() {
 
   if (params.roomId) {
     console.log('[BiDiPage] 🎨 Rendering room for ID:', params.roomId);
-    return <BidirectionalP2PRoom roomId={params.roomId} />;
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <BidirectionalP2PRoom roomId={params.roomId} />
+      </div>
+    );
   }
 
   console.log('[BiDiPage] ⚠️ Invalid access, no room ID provided.');

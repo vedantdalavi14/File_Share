@@ -186,10 +186,10 @@ export default function UploadShare() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 py-12">
+      <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
-        <div className="flex items-center mb-8">
+        <div className="flex items-center mb-6">
           <Link href="/">
             <Button variant="ghost" size="sm" className="mr-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -203,7 +203,7 @@ export default function UploadShare() {
         </div>
 
         {/* Main Upload Card */}
-        <Card className="mb-8 shadow-lg">
+        <Card className="mb-6 shadow-lg">
           <CardContent className="pt-8">
             {!selectedFile ? (
               <div 
@@ -235,7 +235,7 @@ export default function UploadShare() {
                 />
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Selected File Info */}
                 <div className="flex items-center p-4 bg-gray-50 rounded-lg">
                   <div className="bg-purple-500 p-2 rounded-lg mr-4">
@@ -359,20 +359,20 @@ export default function UploadShare() {
         </Card>
 
         {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="text-center p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          <Card className="text-center p-4">
             <Clock className="h-8 w-8 text-purple-500 mx-auto mb-3" />
             <h3 className="font-semibold text-gray-800 mb-2">24-hour expiry</h3>
             <p className="text-sm text-gray-600">Files automatically expire for security</p>
           </Card>
           
-          <Card className="text-center p-6">
+          <Card className="text-center p-4">
             <QrCode className="h-8 w-8 text-purple-500 mx-auto mb-3" />
             <h3 className="font-semibold text-gray-800 mb-2">QR code sharing</h3>
             <p className="text-sm text-gray-600">Easy sharing with QR codes</p>
           </Card>
           
-          <Card className="text-center p-6">
+          <Card className="text-center p-4">
             <Shield className="h-8 w-8 text-purple-500 mx-auto mb-3" />
             <h3 className="font-semibold text-gray-800 mb-2">Secure links</h3>
             <p className="text-sm text-gray-600">Encrypted and protected sharing</p>

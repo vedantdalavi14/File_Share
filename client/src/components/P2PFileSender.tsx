@@ -466,7 +466,7 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
 
   if (isReceiver) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container max-w-4xl py-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">P2P File Receiver</h1>
           <p className="text-gray-600">Receiving file via WebRTC</p>

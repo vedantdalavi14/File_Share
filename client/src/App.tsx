@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import P2PFileShare from './pages/p2p';
 import DownloadPage from './pages/download';
 import BidirectionalP2PPage from './pages/bidirectional-p2p';
+import { Navbar } from './components/Navbar';
 
 function Router() {
   console.log('🧭 Router initialized - SnapShare Hybrid');
@@ -32,12 +33,13 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <Navbar />
+      <main className="flex-1">
         <Toaster />
         <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+      </main>
+    </div>
   );
 }
 
