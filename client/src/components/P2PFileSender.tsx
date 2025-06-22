@@ -357,7 +357,8 @@ export function P2PFileSender({ roomId: initialRoomId, isReceiver = false }: P2P
       console.log('🚀 Initiating file send via WebRTC data channel');
     setConnectionState('transferring');
     try {
-      await webrtcManager.sendFile(selectedFile);
+      const transferId = `${selectedFile.name}-${Date.now()}`;
+      await webrtcManager.sendFile(selectedFile, transferId);
       console.log('✅ File send process completed on sender side');
           setConnectionState('completed');
     } catch (err: any) {

@@ -9,6 +9,7 @@ export interface FileChunk {
 }
 
 export interface FileTransferProgress {
+  id: string;
   fileName: string;
   fileSize: number;
   bytesTransferred: number;
@@ -38,6 +39,7 @@ export class WebRTCManager {
   private sentFile: File | null = null;
   private missingChunkRetries = 0;
   private readonly MAX_RETRIES = 5;
+  private currentTransferId: string | null = null;
 
   // Optimization properties
   private readonly MAX_PARALLEL_CHANNELS = 5;
@@ -45,6 +47,22 @@ export class WebRTCManager {
 
   constructor() {
     this.setupPeerConnection();
+  }
+
+  public resetTransferState() {
+    console.log('[WebRTC] 🧼 Resetting transfer state for next file.');
+    this.receivedChunks.clear();
+    this.expectedChunks = 0;
+    this.currentFileName = "";
+    this.currentFileSize = 0;
+    this.currentFileType = "";
+    this.transferStartTime = 0;
+    this.lastProgressTime = 0;
+    this.lastProgressBytes = 0;
+    this.fileReconstructionTriggered = false;
+    this.sentFile = null;
+    this.missingChunkRetries = 0;
+    this.currentTransferId = null;
   }
 
   private setupPeerConnection() {
@@ -132,8 +150,10 @@ export class WebRTCManager {
     };
   }
 
-  async sendFile(file: File) {
+  async sendFile(file: File, id: string) {
     this.sentFile = file;
+    this.currentTransferId = id;
+
     await Promise.all(this.activeChannels.map(channel => {
         if (channel.readyState === 'open') return Promise.resolve();
         return new Promise<void>(resolve => channel.onopen = () => resolve());
@@ -248,9 +268,19 @@ export class WebRTCManager {
     const bytesDiff = bytesTransferred - this.lastProgressBytes;
     const speed = bytesDiff / timeDiff;
     const percentage = (bytesTransferred / fileSize) * 100;
-    const timeRemaining = speed > 0 ? (fileSize - bytesTransferred) / speed : 0;
+    const timeRemaining = speed > 0 ? (fileSize - bytesTransferred) / speed : Infinity;
 
-    this.onProgressCallback?.({ fileName, fileSize, bytesTransferred, percentage, speed, timeRemaining });
+    const progress: FileTransferProgress = {
+      id: this.currentTransferId!,
+      fileName,
+      fileSize,
+      bytesTransferred,
+      percentage,
+      speed,
+      timeRemaining,
+    };
+
+    this.onProgressCallback?.(progress);
     this.lastProgressTime = now;
     this.lastProgressBytes = bytesTransferred;
   }
@@ -364,13 +394,27 @@ export class WebRTCManager {
   onFileReceived(callback: (file: Blob, fileName: string) => void) { this.onFileReceivedCallback = callback; }
   onConnectionStateChange(callback: (state: string) => void) { this.onConnectionStateChangeCallback = callback; }
 
-  close() {
-    this.activeChannels.forEach(channel => channel.close());
-    this.activeChannels = [];
-    if (this.peerConnection) {
-      this.peerConnection.close();
-      this.peerConnection = null;
+  close(soft = false) {
+    if (soft) {
+        console.log('[WebRTC] 🔌 Soft closing peer connection, preparing for reconnect.');
+        this.activeChannels = []; // Clear old channels
+        if (this.peerConnection) {
+            this.peerConnection.close();
+            this.setupPeerConnection(); // Re-initialize for future connections
+        }
+    } else {
+        console.log('[WebRTC] 🚫 Hard closing peer connection and all channels.');
+        this.activeChannels.forEach(channel => channel.close());
+        this.activeChannels = [];
+        if (this.peerConnection) {
+            this.peerConnection.onconnectionstatechange = null;
+            this.peerConnection.onicecandidate = null;
+            this.peerConnection.ondatachannel = null;
+            this.peerConnection.close();
+            this.peerConnection = null;
+        }
     }
+    this.resetTransferState();
   }
 
   getConnectionState(): string {

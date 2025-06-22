@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8080;
 
 // Enable CORS for all routes
 app.use(cors({
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  registerRoutes(app, io);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -89,10 +89,13 @@ io.on('connection', (socket) => {
   } else {
     serveStatic(app);
   }
+  // All API requests should be handled before this point, so if we get here
+  // and the path is for an api route, it's a 404
+  app.use("/api/*", (req, res) => {
+    res.status(404).json({ message: "API route not found." });
+  });
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // ALWAYS serve the app on the configured port
   server.listen({
     port: Number(port),
     host: "0.0.0.0",

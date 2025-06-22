@@ -1,4 +1,4 @@
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +14,37 @@ import {
   Wifi,
   Smartphone,
   UserX,
-  Trash2
+  Trash2,
+  MessageSquare
 } from 'lucide-react';
+import { useState } from 'react';
+import { apiRequest } from '@/lib/queryClient';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
   console.log('🏠 Home page loaded - SnapShare Hybrid');
+  const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
+
+  const handleCreateRoom = async () => {
+    console.log('[Home] 🏠 Create secure room button clicked.');
+    setIsLoading(true);
+    try {
+      const response = await apiRequest('POST', '/api/bidirectional-rooms');
+      const data = await response.json();
+      if (response.ok) {
+        console.log('[Home] ✅ Room created successfully. Redirecting to:', data.roomId);
+        setLocation(`/bidirectional-p2p/${data.roomId}`);
+      } else {
+        throw new Error(data.error || 'Failed to create room');
+      }
+    } catch (err: any) {
+      console.error("[Home] ❌ Failed to create room from homepage:", err);
+      // In a real app, you'd show a toast notification here
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -49,6 +75,67 @@ export default function Home() {
             Choose your preferred sharing method. No account required, completely private,
             and secure.
           </p>
+        </div>
+
+        {/* --- Bidirectional P2P Main Feature --- */}
+        <Card className="group transition-all duration-300 border-0 shadow-lg mb-12 bg-white hover:shadow-2xl">
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="md:w-1/3 flex-shrink-0">
+                <img 
+                  src="ope_ope_no_mi1.png" 
+                  alt="Bidirectional Share" 
+                  className="rounded-2xl mx-auto w-48 h-48 object-cover group-hover:scale-105 transition-transform duration-300" 
+                />
+              </div>
+              <div className="md:w-2/3 text-center md:text-left">
+                <Badge variant="secondary" className="mb-4 bg-red-100 text-red-700">
+                  New Feature
+                </Badge>
+                <h3 className="text-3xl font-bold text-gray-800 mb-3">Bidirectional P2P Room</h3>
+                <p className="text-gray-600 mb-6">
+                  Create a secure, private room to send and receive files from another peer in real-time. Also includes a chat function.
+                </p>
+                <div className="space-y-3 mb-8 text-left inline-block">
+                  <div className="flex items-center text-gray-700">
+                    <ArrowRightLeft className="h-4 w-4 mr-3 text-red-500" />
+                    <span>Send & Receive Files</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <MessageSquare className="h-4 w-4 mr-3 text-red-500" />
+                    <span>Real-time Chat</span>
+                  </div>
+                   <div className="flex items-center text-gray-700">
+                    <Shield className="h-4 w-4 mr-3 text-red-500" />
+                    <span>End-to-end encrypted</span>
+                  </div>
+                </div>
+                <div>
+                  <Button 
+                    onClick={handleCreateRoom}
+                    disabled={isLoading}
+                    className="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white" 
+                    size="lg"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Room...
+                      </>
+                    ) : (
+                      'Start Secure Room'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Other Options Header */}
+        <div className="text-center mb-8 mt-16">
+          <h2 className="text-3xl font-bold text-gray-800">Or Choose a Quick Action</h2>
+          <p className="text-lg text-gray-500">For simple, one-way transfers.</p>
         </div>
 
         {/* Main Options */}

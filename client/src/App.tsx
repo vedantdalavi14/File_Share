@@ -10,6 +10,7 @@ import Room from "@/pages/room";
 import NotFound from "@/pages/not-found";
 import P2PFileShare from './pages/p2p';
 import DownloadPage from './pages/download';
+import BidirectionalP2PPage from './pages/bidirectional-p2p';
 
 function Router() {
   console.log('🧭 Router initialized - SnapShare Hybrid');
@@ -17,11 +18,13 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/p2p" component={P2PFileShare} />
+      <Route path="/p2p" component={P2P} />
       <Route path="/p2p/:roomId" component={P2PFileShare} />
       <Route path="/upload-share" component={UploadShare} />
       <Route path="/room/:roomId" component={Room} />
       <Route path="/download/:uuid" component={DownloadPage} />
+      <Route path="/bidirectional-p2p" component={BidirectionalP2PPage} />
+      <Route path="/bidirectional-p2p/:roomId" component={BidirectionalP2PPage} />
       <Route component={NotFound} />
     </Switch>
   );
