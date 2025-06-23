@@ -66,10 +66,10 @@ export default function Home() {
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="md:w-1/3 flex-shrink-0">
-                <img 
-                  src="ope_ope_no_mi1.png" 
-                  alt="Bidirectional Share" 
-                  className="rounded-2xl mx-auto w-48 h-48 object-cover group-hover:scale-110 transition-transform duration-500 ease-out" 
+                <img
+                  src="ope_ope_no_mi1.png"
+                  alt="Bidirectional Share"
+                  className="rounded-2xl mx-auto w-48 h-48 object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                 />
               </div>
               <div className="md:w-2/3 text-center md:text-left">
@@ -89,16 +89,16 @@ export default function Home() {
                     <MessageSquare className="h-4 w-4 mr-3 text-red-500" />
                     <span>Real-time Chat</span>
                   </div>
-                   <div className="flex items-center text-gray-700">
+                  <div className="flex items-center text-gray-700">
                     <Shield className="h-4 w-4 mr-3 text-red-500" />
                     <span>End-to-end encrypted</span>
                   </div>
                 </div>
                 <div>
-                  <Button 
+                  <Button
                     onClick={handleCreateRoom}
                     disabled={isLoading}
-                    className="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white" 
+                    className="w-full md:w-auto bg-red-500 hover:bg-red-600 text-white"
                     size="lg"
                   >
                     {isLoading ? (
@@ -138,19 +138,21 @@ export default function Home() {
                   Direct peer-to-peer transfer using WebRTC. No server storage, maximum privacy.
                 </p>
 
-                {/* Features */}
-                <div className="space-y-3 mb-6 text-left">
-                  <div className="flex items-center text-gray-700">
-                    <Zap className="h-4 w-4 mr-3 text-blue-500" />
-                    <span className="text-sm">Real-time transfer</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <Server className="h-4 w-4 mr-3 text-blue-500" />
-                    <span className="text-sm">No server storage</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <Users className="h-4 w-4 mr-3 text-blue-500" />
-                    <span className="text-sm">Direct connection</span>
+                <div className="flex justify-center">
+                  {/* Features */}
+                  <div className="space-y-3 mb-6 text-left">
+                    <div className="flex items-center text-gray-700">
+                      <Zap className="h-4 w-4 mr-3 text-blue-500" />
+                      <span className="text-sm">Real-time transfer</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <Server className="h-4 w-4 mr-3 text-blue-500" />
+                      <span className="text-sm">No server storage</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <Users className="h-4 w-4 mr-3 text-blue-500" />
+                      <span className="text-sm">Direct connection</span>
+                    </div>
                   </div>
                 </div>
 
@@ -176,19 +178,21 @@ export default function Home() {
                   Upload to secure cloud storage with 24-hour expiration and QR code sharing.
                 </p>
 
-                {/* Features */}
-                <div className="space-y-3 mb-6 text-left">
-                  <div className="flex items-center text-gray-700">
-                    <Clock className="h-4 w-4 mr-3 text-purple-500" />
-                    <span className="text-sm">24-hour expiry</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <QrCode className="h-4 w-4 mr-3 text-purple-500" />
-                    <span className="text-sm">QR code sharing</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <Shield className="h-4 w-4 mr-3 text-purple-500" />
-                    <span className="text-sm">Secure links</span>
+                <div className="flex justify-center">
+                  {/* Features */}
+                  <div className="space-y-3 mb-6 text-left al">
+                    <div className="flex items-center text-gray-700">
+                      <Clock className="h-4 w-4 mr-3 text-purple-500" />
+                      <span className="text-sm">24-hour expiry</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <QrCode className="h-4 w-4 mr-3 text-purple-500" />
+                      <span className="text-sm">QR code sharing</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <Shield className="h-4 w-4 mr-3 text-purple-500" />
+                      <span className="text-sm">Secure links</span>
+                    </div>
                   </div>
                 </div>
 
@@ -205,7 +209,7 @@ export default function Home() {
         {/* Why Choose SnapShare */}
         <Card className="mb-8 border-0 shadow-lg">
           <CardContent className="p-12">
-            <h3 className="text-2xl font-bold text-gray-800 text-center mb-12">Why Choose SnapShare?</h3>
+            <h3 className="text-2xl font-bold text-gray-800 text-center mb-12">Why Choose File Share?</h3>
             <div className="grid md:grid-cols-4 gap-8">
               {/* No Account Required */}
               <div className="text-center flex flex-col items-center">
@@ -251,7 +255,7 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-center mb-4">
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100">
-                <Upload className="w-5 h-5 text-purple-600" />
+                <img src="/heart.png" alt="File Share Logo" className="h-8 w-8" />
               </div>
               <h3 className="ml-3 text-lg font-bold text-gray-800">File Share</h3>
             </div>
