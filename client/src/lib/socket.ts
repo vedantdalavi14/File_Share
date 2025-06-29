@@ -2,39 +2,49 @@ import { io, Socket } from "socket.io-client";
 
 class SocketManager {
   private socket: Socket | null = null;
+  private readonly uri: string;
+
+  constructor() {
+    this.uri = import.meta.env.VITE_API_URL || window.location.origin;
+  }
 
   connect(): Socket {
     if (this.socket && this.socket.connected) {
       return this.socket;
     }
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.hostname === 'localhost' 
-      ? 'localhost:8080'
-      : window.location.host;
-    const socketUrl = `${protocol}//${host}`;
     
-    console.log('🔌 Connecting to WebSocket at:', socketUrl);
+    // Disconnect any existing, disconnected socket instance before creating a new one
+    if (this.socket) {
+      this.socket.disconnect();
+    }
     
-    this.socket = io(socketUrl, {
+    console.log('[SocketManager] 🔌 Connecting to server at:', this.uri);
+    this.socket = io(this.uri, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000
+    });
+
+    this.socket.on('connect', () => {
+      console.log('[SocketManager] ✅ Connected with ID:', this.socket?.id);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('[SocketManager] 🔌 Disconnected:', reason);
     });
 
     return this.socket;
   }
 
+  getSocket(): Socket | null {
+    return this.socket;
+  }
+
   disconnect() {
     if (this.socket) {
+      console.log('[SocketManager] 🔌 Manually disconnecting socket.');
       this.socket.disconnect();
       this.socket = null;
     }
-  }
-
-  getSocket(): Socket | null {
-    return this.socket;
   }
 }
 

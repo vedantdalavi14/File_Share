@@ -86,8 +86,6 @@ io.on('connection', (socket) => {
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else {
-    serveStatic(app);
   }
   // All API requests should be handled before this point, so if we get here
   // and the path is for an api route, it's a 404
