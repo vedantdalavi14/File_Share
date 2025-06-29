@@ -124,9 +124,22 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
 
     socket.on('connect', handleConnect);
 
+    const cleanupSocketListeners = () => {
+      console.log('[BiDiRoom] 🔕 Removing all socket event listeners.');
+      socket.off('bidi-room-participants');
+      socket.off('bidi-peer-joined');
+      socket.off('bidi-webrtc-offer');
+      socket.off('bidi-webrtc-answer');
+      socket.off('bidi-webrtc-ice-candidate');
+      socket.off('bidi-peer-left');
+      socket.off('bidi-chat-message');
+      socket.off('bidi-error');
+    };
+
     return () => {
       console.log('[BiDiRoom] 🧼 Component unmounting. Cleaning up connections.');
       socket.off('connect', handleConnect);
+      cleanupSocketListeners();
       webrtcManager.close();
       socketManager.disconnect();
     };

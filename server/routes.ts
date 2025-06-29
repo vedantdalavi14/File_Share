@@ -263,11 +263,8 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
           // Clean up empty rooms
           if (clients.size === 0) {
             activeRooms.delete(roomId);
-            // Also deactivate in the metadata store
-            const room = p2pRooms.get(roomId);
-            if (room) {
-              room.isActive = false;
-            }
+            // Also delete from the metadata store to prevent memory leak
+            p2pRooms.delete(roomId);
             console.log(`Cleaned up empty room ${roomId}`);
           }
         }
@@ -318,6 +315,25 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
       
       // Send participant list to new client
       socket.emit("bidi-room-participants", { participants: otherClients });
+    });
+
+    socket.on("bidi-leave-room", ({ roomId }) => {
+      const roomClients = activeBidirectionalRooms.get(roomId);
+      if (roomClients && roomClients.has(socket.id)) {
+        socket.leave(roomId);
+        roomClients.delete(socket.id);
+        console.log(`[BiDi] 🚶 Client ${socket.id} left room ${roomId}`);
+
+        // Notify the other peer
+        socket.to(roomId).emit("bidi-peer-left", socket.id);
+
+        // If the room is now empty, clean it up completely
+        if (roomClients.size === 0) {
+          activeBidirectionalRooms.delete(roomId);
+          bidirectionalRooms.delete(roomId);
+          console.log(`[BiDi] 🧼 Cleaned up empty room ${roomId} after user left`);
+        }
+      }
     });
 
     socket.on("bidi-webrtc-offer", (data) => {
