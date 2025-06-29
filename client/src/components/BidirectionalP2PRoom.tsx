@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import JSZip from 'jszip';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,18 +91,48 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
           }
         });
 
-        webrtcManager.onFileReceived((file, fileName) => {
+        webrtcManager.onFileReceived(async (file, fileName) => {
           console.log(`[BiDiRoom] 📥 File received via WebRTC: ${fileName}`, file);
-          const transferId = `${fileName}-${Date.now()}`;
-          setTransfers(prev => [...prev, {
-            id: transferId,
-            name: fileName,
-            size: file.size,
-            type: 'received',
-            blob: file,
-            status: 'completed',
-          }]);
-          toast({ title: 'File Received', description: fileName });
+
+          if (fileName.startsWith('OpeOpeArchive-') && fileName.endsWith('.zip')) {
+            toast({ title: 'Receiving Zipped Files', description: 'Unzipping archive...' });
+            const zip = new JSZip();
+            try {
+              const unzipped = await zip.loadAsync(file);
+              const unzippedFiles: FileTransfer[] = [];
+              for (const [relativePath, zipEntry] of Object.entries(unzipped.files)) {
+                if (!zipEntry.dir) {
+                  const blob = await zipEntry.async('blob');
+                  const unzippedFile = new File([blob], relativePath, { type: blob.type });
+                  const transferId = `${unzippedFile.name}-${Date.now()}`;
+                  unzippedFiles.push({
+                    id: transferId,
+                    name: unzippedFile.name,
+                    size: unzippedFile.size,
+                    type: 'received',
+                    blob: unzippedFile,
+                    status: 'completed',
+                  });
+                }
+              }
+              setTransfers(prev => [...prev, ...unzippedFiles]);
+              toast({ title: 'Files Unzipped', description: `Successfully extracted ${unzippedFiles.length} files.` });
+            } catch (error) {
+              console.error('[BiDiRoom] ❌ Failed to unzip file:', error);
+              toast({ variant: 'destructive', title: 'Unzip Failed', description: 'The received file archive appears to be corrupt.' });
+            }
+          } else {
+            const transferId = `${fileName}-${Date.now()}`;
+            setTransfers(prev => [...prev, {
+              id: transferId,
+              name: fileName,
+              size: file.size,
+              type: 'received',
+              blob: file,
+              status: 'completed',
+            }]);
+            toast({ title: 'File Received', description: fileName });
+          }
         });
 
         webrtcManager.onProgress(progress => {
@@ -224,28 +255,52 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
     socketManager.getSocket()?.emit('bidi-webrtc-offer', { offer, targetId: targetPeerId, roomId });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && peerId) {
-      console.log(`[BiDiRoom] 📄 File selected: ${file.name}. Starting transfer.`);
-      const transferId = `${file.name}-${Date.now()}`;
-      setTransfers(prev => [...prev, {
-        id: transferId,
-        name: file.name,
-        size: file.size,
-        type: 'sent',
-        status: 'progress',
-        progress: { id: transferId, fileName: file.name, fileSize: file.size, bytesTransferred: 0, percentage: 0, speed: 0, timeRemaining: Infinity }
-      }]);
-      webrtcManager.sendFile(file, transferId)
-        .then(() => {
-          console.log(`[BiDiRoom] ✅ File transfer completed for: ${file.name}`);
-          setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'completed' } : t));
-        })
-        .catch((err) => {
-          console.error(`[BiDiRoom] ❌ File transfer failed for: ${file.name}`, err);
-          setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'failed' } : t));
-        });
+  const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !peerId) {
+      return;
+    }
+
+    let fileToSend: File;
+    let transferName: string;
+
+    if (files.length > 1) {
+      console.log(`[BiDiRoom] 🗜️ Zipping ${files.length} files for transfer.`);
+      const zip = new JSZip();
+      for (let i = 0; i < files.length; i++) {
+        zip.file(files[i].name, files[i]);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      transferName = `OpeOpeArchive-${Date.now()}.zip`;
+      fileToSend = new File([zipBlob], transferName, { type: 'application/zip' });
+    } else {
+      fileToSend = files[0];
+      transferName = fileToSend.name;
+    }
+
+    console.log(`[BiDiRoom] 📄 File selected: ${transferName}. Starting transfer.`);
+    const transferId = `${transferName}-${Date.now()}`;
+    setTransfers(prev => [...prev, {
+      id: transferId,
+      name: transferName,
+      size: fileToSend.size,
+      type: 'sent',
+      status: 'progress',
+      progress: { id: transferId, fileName: transferName, fileSize: fileToSend.size, bytesTransferred: 0, percentage: 0, speed: 0, timeRemaining: Infinity }
+    }]);
+
+    try {
+      await webrtcManager.sendFile(fileToSend, transferId);
+      console.log(`[BiDiRoom] ✅ File transfer completed for: ${transferName}`);
+      setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'completed' } : t));
+    } catch (err) {
+      console.error(`[BiDiRoom] ❌ File transfer failed for: ${transferName}`, err);
+      setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'failed' } : t));
+    } finally {
+      // Reset file input to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -286,6 +341,20 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
     }
   };
 
+  const renderTransfer = (t: FileTransfer) => (
+    <div key={t.id} className="p-2 border rounded-md bg-white">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-semibold truncate">{t.name}</span>
+        <Badge variant={t.type === 'sent' ? 'secondary' : 'secondary'}>{t.type}</Badge>
+      </div>
+      {t.status === 'progress' && t.progress && <Progress value={t.progress.percentage} className="my-1" />}
+      {t.status === 'completed' && t.type === 'received' && t.blob && (
+        <Button onClick={() => downloadFile(t.blob!, t.name)} size="sm" className="mt-1 w-full bg-red-500 hover:bg-red-600 text-white"><Download className="mr-2" />Download</Button>
+      )}
+      {t.status === 'completed' && t.type === 'sent' && <div className="text-green-600 text-xs flex items-center mt-1"><CheckCircle className="mr-1" />Sent</div>}
+    </div>
+  );
+
   return (
     <div className="container max-w-4xl py-8">
       <Card className="shadow-xl relative overflow-hidden">
@@ -321,35 +390,28 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
           )}
 
           {(status === 'connected' || status === 'disconnected') && (
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* File Transfer Column */}
-              <div className="border-r pr-4">
-                <h3 className="font-semibold mb-2 flex items-center text-red-800"><Share2 className="mr-2 text-red-500" />File Transfers</h3>
-                <div className="h-96 overflow-y-auto p-2 border rounded-md bg-gray-50 space-y-2">
-                  {transfers.map(t => (
-                    <div key={t.id} className="p-2 border rounded-md bg-white">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold truncate">{t.name}</span>
-                        <Badge variant={t.type === 'sent' ? 'secondary' : 'default'}>{t.type}</Badge>
-                      </div>
-                      {t.status === 'progress' && t.progress && <Progress value={t.progress.percentage} className="my-1" />}
-                      {t.status === 'completed' && t.type === 'received' && t.blob && (
-                        <Button onClick={() => downloadFile(t.blob!, t.name)} size="sm" className="mt-1 w-full bg-red-500 hover:bg-red-600 text-white"><Download className="mr-2" />Download</Button>
-                      )}
-                      {t.status === 'completed' && t.type === 'sent' && <div className="text-green-600 text-xs flex items-center mt-1"><CheckCircle className="mr-1" />Sent</div>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-semibold mb-2">File Transfers</h3>
+                <div className="border rounded-md p-2 h-80 overflow-y-auto">
+                  {transfers.length > 0 ? (
+                    <div className="space-y-2">
+                      {transfers.map(renderTransfer)}
                     </div>
-                  ))}
-                  {transfers.length === 0 && <div className="text-center text-gray-500 pt-16">No files transferred yet.</div>}
+                  ) : (
+                    <div className="text-center text-gray-500 pt-16">No files transferred yet.</div>
+                  )}
                 </div>
-                <Button className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white" onClick={() => fileInputRef.current?.click()} disabled={status !== 'connected'}>
-                  <Paperclip className="mr-2" />Send a File
+                <Input ref={fileInputRef} type="file" className="hidden" onChange={handleFilesSelect} multiple />
+                <Button onClick={() => fileInputRef.current?.click()} disabled={status !== 'connected'} className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white">
+                  <Paperclip className="mr-2 h-4 w-4" />
+                  Select & Send File(s)
                 </Button>
-                <Input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
               </div>
               {/* Chat Column */}
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center text-red-800"><Users className="mr-2 text-red-500" />Chat</h3>
-                <div className="h-96 overflow-y-auto p-2 border rounded-md bg-gray-50 flex flex-col space-y-2">
+              <div className="flex flex-col">
+                <h3 className="font-semibold mb-2">Live Chat</h3>
+                <div className="h-80 overflow-y-auto p-2 border rounded-md bg-gray-50 flex flex-col space-y-2">
                   {chatMessages.map(m => (
                     <div key={m.id} className={`p-2 rounded-lg max-w-xs ${m.type === 'sent' ? 'bg-red-500 text-white self-end' : 'bg-gray-200 self-start'}`}>
                       {m.message}
