@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, cleanupStaleRooms } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import cors from "cors";
@@ -116,4 +116,14 @@ io.on('connection', (socket) => {
       console.error("❌ Error during scheduled file deletion:", error);
     }
   }, ONE_HOUR);
+
+  // Schedule a job to clean up stale rooms every 30 minutes.
+  const THIRTY_MINUTES = 30 * 60 * 1000;
+  setInterval(() => {
+    try {
+      cleanupStaleRooms();
+    } catch (error) {
+      console.error("❌ Error during stale room cleanup:", error);
+    }
+  }, THIRTY_MINUTES);
 })();

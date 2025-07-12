@@ -9,15 +9,24 @@ import { supabaseAdmin } from "./supabase";
 
 const upload = multer();
 
+// --- In-memory stores ---
+// NOTE: These are not suitable for a multi-instance production environment.
+// They are used here for simplicity in a single-instance setup.
+export const p2pRooms = new Map<string, { id: string; createdAt: Date; isActive: boolean }>();
+export const activeRooms = new Map<string, Set<string>>();
+export const bidirectionalRooms = new Map<string, { id: string; createdAt: Date; hostId: string | null }>();
+export const activeBidirectionalRooms = new Map<string, Set<string>>();
+
+
 export function registerRoutes(app: Express, io: SocketIOServer) {
   // In-memory store for P2P room metadata
-  const p2pRooms = new Map<string, { id: string; createdAt: Date; isActive: boolean }>();
+  // const p2pRooms = new Map<string, { id: string; createdAt: Date; isActive: boolean }>();
   // In-memory store for tracking clients in a room for signaling
-  const activeRooms = new Map<string, Set<string>>();
+  // const activeRooms = new Map<string, Set<string>>();
   
   // --- Stores for Bidirectional P2P ---
-  const bidirectionalRooms = new Map<string, { id: string; createdAt: Date; hostId: string | null }>();
-  const activeBidirectionalRooms = new Map<string, Set<string>>();
+  // const bidirectionalRooms = new Map<string, { id: string; createdAt: Date; hostId: string | null }>();
+  // const activeBidirectionalRooms = new Map<string, Set<string>>();
 
   // API Routes
   app.post("/api/rooms", async (req, res) => {
@@ -362,4 +371,41 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     });
 
   });
+}
+
+const STALE_THRESHOLD = 1000 * 60 * 60; // 1 hour in milliseconds
+
+export function cleanupStaleRooms() {
+  const now = Date.now();
+  let cleanedCount = 0;
+
+  console.log("🧹 Running stale room cleanup job...");
+
+  // Clean P2P rooms
+  p2pRooms.forEach((room, roomId) => {
+    const participants = activeRooms.get(roomId);
+    if ((!participants || participants.size === 0) && (now - room.createdAt.getTime() > STALE_THRESHOLD)) {
+      p2pRooms.delete(roomId);
+      activeRooms.delete(roomId);
+      cleanedCount++;
+      console.log(`🧼 Cleaned up stale P2P room ${roomId}`);
+    }
+  });
+
+  // Clean Bidirectional rooms
+  bidirectionalRooms.forEach((room, roomId) => {
+    const participants = activeBidirectionalRooms.get(roomId);
+    if ((!participants || participants.size === 0) && (now - room.createdAt.getTime() > STALE_THRESHOLD)) {
+      bidirectionalRooms.delete(roomId);
+      activeBidirectionalRooms.delete(roomId);
+      cleanedCount++;
+      console.log(`🧼 Cleaned up stale Bidirectional room ${roomId}`);
+    }
+  });
+
+  if (cleanedCount > 0) {
+    console.log(`✅ Stale room cleanup finished. Removed ${cleanedCount} rooms.`);
+  } else {
+    console.log("✅ No stale rooms found.");
+  }
 }
