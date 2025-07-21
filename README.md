@@ -5,6 +5,10 @@
 
   ### A versatile, hybrid file-sharing application inspired by the powers of the Ope Ope no Mi from One Piece.
 
+## <a name="-screenshots"></a>📸 Live Demo
+https://github.com/user-attachments/assets/4cde506f-2b61-4912-a6e5-5f4f0e033f8f
+
+
   <p>
     <a href="https://file-share-w2g2.onrender.com/" target="_blank"><strong>Live Demo »</strong></a>
     <br />
@@ -56,14 +60,6 @@
   - **🔒 Secure:** WebRTC channels are encrypted end-to-end by default.
   - **🚀 Fast:** Direct P2P connections minimize latency and are ideal for large files.
   - **Modern UI:** A clean and responsive design built with React, TypeScript, and Tailwind CSS.
-
----
-
-## <a name="-screenshots"></a>📸 Live Demo
-
-<a href="https://github.com/vedantdalavi14/File_Share/blob/main/attached_assets/File_Share.mp4" target="_blank">
-  <img src="attached_assets/file-share.jpeg" alt="Project Demo Video" />
-</a>
 
 ---
 
