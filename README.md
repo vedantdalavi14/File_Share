@@ -5,10 +5,6 @@
 
   ### A versatile, hybrid file-sharing application inspired by the powers of the Ope Ope no Mi from One Piece.
 
-## <a name="-screenshots"></a>📸 Live Demo
-https://github.com/user-attachments/assets/4cde506f-2b61-4912-a6e5-5f4f0e033f8f
-
-
   <p>
     <a href="https://file-share-w2g2.onrender.com/" target="_blank"><strong>Live Demo »</strong></a>
     <br />
@@ -31,7 +27,7 @@ https://github.com/user-attachments/assets/4cde506f-2b61-4912-a6e5-5f4f0e033f8f
 
 - [About The Project](#about-the-project)
 - [Key Features](#-key-features)
-- [Screenshots](#-screenshots)
+- [Live Demo](#-screenshots)
 - [Built With](#-built-with)
 - [Getting Started](#-getting-started)
 - [Project Architecture](#-project-architecture)
@@ -62,6 +58,8 @@ https://github.com/user-attachments/assets/4cde506f-2b61-4912-a6e5-5f4f0e033f8f
   - **Modern UI:** A clean and responsive design built with React, TypeScript, and Tailwind CSS.
 
 ---
+## <a name="-screenshots"></a>📸 Live Demo
+https://github.com/user-attachments/assets/4cde506f-2b61-4912-a6e5-5f4f0e033f8f
 
 ## <a name="-built-with"></a>🛠️ Built With
 
