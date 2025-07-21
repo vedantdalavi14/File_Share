@@ -1,57 +1,107 @@
-# Ope Ope no Mi - P2P File Sharing and Communication
+<div align="center">
+  <img src="client/public/ope_ope_no_mi1.png" alt="Ope Ope no Mi" width="150"/>
 
-![Ope Ope no Mi](client/public/ope_ope_no_mi1.png)
+  # 🏴‍☠️ Ope Ope no Mi - P2P File Sharing
 
-Welcome to **Ope Ope no Mi**, a versatile, hybrid file-sharing application inspired by the powers of the Ope Ope no Mi from One Piece. This project provides multiple ways to share files and communicate directly with others, emphasizing privacy, speed, and user control.
+  ### A versatile, hybrid file-sharing application inspired by the powers of the Ope Ope no Mi from One Piece.
 
-The application is deployed and can be accessed [here](https://file-share-w2g2.onrender.com/).
+  <p>
+    <a href="https://file-share-w2g2.onrender.com/" target="_blank"><strong>Live Demo »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/vedantdalavi14/File_Share/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/vedantdalavi14/File_Share/issues">Request Feature</a>
+  </p>
 
-## ✨ Features
+  <p>
+    <a href="https://github.com/vedantdalavi14/File_Share/blob/main/LICENSE"><img src="https://img.shields.io/github/license/vedantdalavi14/File_Share?style=for-the-badge" alt="License"></a>
+    <a href="https://www.linkedin.com/in/vedant-dalavi-175419331/"><img src="https://img.shields.io/badge/LinkedIn-VedantDalavi-blue?style=for-the-badge&logo=linkedin" alt="LinkedIn"></a>
+    <a href="https://twitter.com/VedantDalavi14"><img src="https://img.shields.io/badge/Twitter-@VedantDalavi14-blue?style=for-the-badge&logo=twitter" alt="Twitter"></a>
+  </p>
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [About The Project](#about-the-project)
+- [Key Features](#-key-features)
+- [Screenshots](#-screenshots)
+- [Built With](#-built-with)
+- [Getting Started](#-getting-started)
+- [Project Architecture](#-project-architecture)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Contact](#-contact)
+
+---
+
+## <a name="about-the-project"></a>📖 About The Project
+
+**Ope Ope no Mi** is a hybrid file-sharing application that provides multiple ways to share files and communicate directly with others, emphasizing privacy, speed, and user control. This project was built to explore the power of WebRTC for peer-to-peer connections and to create a seamless, real-world file-sharing experience.
+
+---
+
+## <a name="-key-features"></a>✨ Key Features
 
 - **Hybrid File Sharing:**
-  - **☁️ Server-Based Upload:** Securely upload files to Supabase Storage. The files are automatically deleted after 24 hours. A shareable link is generated for anyone to download the file.
-  - **⚡ Instant P2P Transfer:** Send files directly to another user using WebRTC. No data is stored on any server, ensuring maximum privacy and speed.
-
-- **Bidirectional P2P Rooms ("ROOMs"):**
-  - Create secure, private rooms for real-time interaction.
-  - **💬 Live Chat:** Engage in end-to-end encrypted chat with the other peer.
-  - **📁 Multi-file & Folder Transfer:** Send multiple files and even entire folders. The application intelligently zips them on the fly for a seamless transfer.
-  - **🔗 Easy Sharing:** Share room links easily via a direct link or a scannable QR code.
-
+  - **☁️ Server-Based Upload:** Securely upload files to Supabase Storage, with automatic deletion after 24 hours.
+  - **⚡ Instant P2P Transfer:** Send files directly to another user using WebRTC, with no server storage for maximum privacy.
+- **Bidirectional P2P Rooms:**
+  - **💬 Live Chat:** Engage in end-to-end encrypted chat with another peer.
+  - **📁 Multi-file & Folder Transfer:** Send multiple files and folders, which are intelligently zipped on the fly.
+  - **🔗 Easy Sharing:** Share room links via a direct link or a scannable QR code.
 - **Technology Highlights:**
   - **🔒 Secure:** WebRTC channels are encrypted end-to-end by default.
-  - **🚀 Fast:** Direct P2P connections minimize latency.
-  - **Modern UI:** Built with React, TypeScript, and Tailwind CSS, featuring a clean and responsive design.
+  - **🚀 Fast:** Direct P2P connections minimize latency and are ideal for large files.
+  - **Modern UI:** A clean and responsive design built with React, TypeScript, and Tailwind CSS.
 
-## 🛠️ Technologies Used
+---
 
-- **Frontend:**
-  - React & TypeScript
-  - Vite
-  - Tailwind CSS with Shadcn/ui for components
-  - `wouter` for routing
-  - `socket.io-client` for signaling
-- **Backend:**
-  - Node.js & Express with TypeScript
-  - `socket.io` for the signaling server
-- **P2P Communication:**
-  - WebRTC for direct data channels
-- **Storage & Database:**
-  - Supabase for user file storage (server-based sharing)
-  - Drizzle ORM with a PostgreSQL database
-- **Deployment:**
-  - The live version is deployed on Render.
+## <a name="-screenshots"></a>📸 Live Demo
 
-## 🚀 Getting Started
+<a href="https://github.com/vedantdalavi14/File_Share/blob/main/attached_assets/File_Share.mp4" target="_blank">
+  <img src="attached_assets/file-share.jpeg" alt="Project Demo Video" />
+</a>
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+---
+
+## <a name="-built-with"></a>🛠️ Built With
+
+This project is built with a modern, full-stack TypeScript architecture.
+
+| Tech Stack                | Description                                                                 |
+| ------------------------- | --------------------------------------------------------------------------- |
+| **Frontend**              |                                                                             |
+| [React](https://reactjs.org/)     | A JavaScript library for building user interfaces.                          |
+| [TypeScript](https://www.typescriptlang.org/) | A typed superset of JavaScript that compiles to plain JavaScript.         |
+| [Vite](https://vitejs.dev/)       | A fast frontend build tool that provides a lightning-fast development experience. |
+| [Tailwind CSS](https://tailwindcss.com/) | A utility-first CSS framework for rapid UI development.                     |
+| [Shadcn/ui](https://ui.shadcn.com/) | Re-usable components built using Radix UI and Tailwind CSS.                 |
+| **Backend**               |                                                                             |
+| [Node.js](https://nodejs.org/)   | A JavaScript runtime built on Chrome's V8 JavaScript engine.                |
+| [Express](https://expressjs.com/)   | A minimal and flexible Node.js web application framework.                   |
+| [Socket.IO](https://socket.io/)    | Enables real-time, bidirectional, and event-based communication.            |
+| **P2P & Storage**         |                                                                             |
+| [WebRTC](https://webrtc.org/)      | Enables real-time communication of audio, video, and data in web browsers.  |
+| [Supabase](https://supabase.io/)  | An open-source Firebase alternative for storage and database.               |
+| [Drizzle ORM](https://orm.drizzle.team/) | A TypeScript ORM for building web applications with SQL databases.            |
+| **Deployment**            |                                                                             |
+| [Render](https://render.com/)      | A unified cloud to build and run all your apps and websites.                |
+
+---
+
+## <a name="-getting-started"></a>🚀 Getting Started
+
+To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
-- Node.js (v18 or later recommended)
-- npm or yarn
+- [Node.js](https://nodejs.org/en/download/) (v18 or later recommended)
+- [npm](https://www.npmjs.com/get-npm) or [yarn](https://classic.yarnpkg.com/en/docs/install/)
 
-### Installation & Setup
+### Installation
 
 1.  **Clone the repository:**
     ```bash
@@ -68,77 +118,80 @@ Follow these instructions to get a copy of the project up and running on your lo
     Create a `.env` file in the root of the project and add the following keys. You will need a Supabase account for this.
 
     ```env
-    # Public key for the Supabase client (used on the frontend)
+    # Public key for the Supabase client (frontend)
     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-    # Secret service role key for Supabase admin tasks (used on the backend)
+    # Secret service role key for Supabase admin (backend)
     SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
     ```
-
-    The `supabaseUrl` is currently hardcoded but could be moved to the `.env` file for more flexibility.
 
 ### Running the Application
 
 -   **Development Mode:**
-    This command will start the Vite frontend and the Node.js Express backend concurrently. The application will be available at `http://localhost:8080`.
+    Starts the Vite frontend and the Node.js backend concurrently.
     ```bash
     npm run dev
     ```
 
 -   **Production Build:**
-    This command builds the frontend and backend for production.
+    Builds the frontend and backend for production.
     ```bash
     npm run build
     ```
 
 -   **Start in Production:**
-    This command starts the application from the compiled `dist` folder.
+    Starts the application from the compiled `dist` folder.
     ```bash
     npm run start
     ```
 
-## 🏗️ Project Architecture
+---
 
-The application is a monorepo-style project with a `client` and `server` directory.
+## <a name="-project-architecture"></a>🏗️ Project Architecture
 
-### Server (`/server`)
+The application follows a monorepo-style structure with a `client` and `server` directory.
 
--   An **Express.js** server acts as the signaling server for WebRTC.
--   **Socket.IO** is used to manage rooms and pass signaling messages (offers, answers, ICE candidates) between peers to establish a connection.
--   It provides API endpoints for:
-    -   Creating and validating P2P rooms (`/api/rooms`, `/api/bidirectional-rooms`).
-    -   Initiating server-based uploads by generating signed URLs for Supabase (`/api/files/upload`).
-    -   Finalizing uploads and retrieving file metadata (`/api/files/finalize`, `/api/files/:uuid`).
--   An in-memory store is used to manage active rooms and participants.
-
-### Client (`/client`)
-
--   A **React** application built with **Vite** and written in **TypeScript**.
--   The `WebRTCManager` class (`/client/src/lib/webrtc.ts`) abstracts all the low-level WebRTC logic, including creating peer connections, managing data channels, and handling file chunking and reconstruction.
--   The `socketManager` (`/client/src/lib/socket.ts`) is a singleton for managing the Socket.IO connection to the signaling server.
--   **Components:** The UI is built with reusable React components, with core logic for file transfers encapsulated in `P2PFileSender.tsx` and `BidirectionalP2PRoom.tsx`.
--   **State Management:** Primarily uses React's `useState`, `useRef`, and `useEffect` hooks.
+-   **`/server`**: The Express.js backend that serves as the signaling server for WebRTC. It uses Socket.IO to manage rooms and pass signaling messages between peers. It also provides API endpoints for server-based file uploads and room management.
+-   **`/client`**: The React application built with Vite. It contains all the UI components and the client-side logic for WebRTC connections, file transfers, and chat.
+-   **`/shared`**: Contains shared code, such as database schemas, that can be used by both the client and the server.
 
 ### File Sharing Flow
 
 #### P2P File Transfer
-1.  A user (sender) selects a file.
-2.  A new room is created on the server, and a shareable link is generated.
-3.  The sender connects to the signaling server and waits in the room.
-4.  Another user (receiver) uses the link to join the room.
-5.  The server notifies both users about each other's presence.
-6.  A WebRTC connection is negotiated through the signaling server.
-7.  Once the direct P2P connection is established, the file is transferred in chunks directly between the two peers.
-8.  The receiver reconstructs the file and can download it.
+1.  A sender selects a file, and a new room is created on the server.
+2.  A shareable link is generated, which the sender shares with a receiver.
+3.  The receiver joins the room, and the signaling server notifies both users.
+4.  A WebRTC connection is negotiated through the signaling server.
+5.  Once the P2P connection is established, the file is transferred in chunks directly between the two peers.
 
 #### Server-Based File Transfer
-1.  A user selects a file to upload.
-2.  The client requests a secure, signed upload URL from the server.
-3.  The server generates this URL using Supabase Storage credentials.
-4.  The client uploads the file directly to Supabase Storage using the signed URL.
-5.  Upon successful upload, the client notifies the server to finalize the process, creating a metadata record in the database.
-6.  The server returns a final shareable download link.
+1.  A user uploads a file, and the client requests a secure signed URL from the server.
+2.  The client uploads the file directly to Supabase Storage.
+3.  Upon completion, the server creates a metadata record and returns a final shareable download link.
 
 ---
 
-Feel free to contribute, open issues, and suggest improvements! 
+## <a name="-contributing"></a>🤝 Contributing
+
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+To contribute:
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+---
+
+## <a name="-license"></a>📝 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+## <a name="-contact"></a>📬 Contact
+
+Vedant Dalavi - [LinkedIn](https://www.linkedin.com/in/vedant-dalavi-175419331/) - [Portfolio](https://vedantdalavi.vercel.app/)
+
+Project Link: [https://github.com/vedantdalavi14/File_Share](https://github.com/vedantdalavi14/File_Share) 

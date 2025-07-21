@@ -12,7 +12,7 @@ class SocketManager {
     if (this.socket && this.socket.connected) {
       return this.socket;
     }
-    
+
     // Disconnect any existing, disconnected socket instance before creating a new one
     if (this.socket) {
       this.socket.disconnect();
