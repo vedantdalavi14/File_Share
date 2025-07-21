@@ -1,6 +1,30 @@
-node_modules
-dist
+# Node modules
+node_modules/
+
+# Build output
+dist/
+server/public/
+
+# macOS system files
 .DS_Store
-server/public
+
+# Environment variables
+.env
+
+# Vite config backups or temp files
 vite.config.ts.*
 *.tar.gz
+
+# Logs
+*.log
+
+# IDE configs
+.vscode/
+.idea/
+
+# OS junk
+Thumbs.db
+
+# Testing & coverage
+coverage/
+*.lcov

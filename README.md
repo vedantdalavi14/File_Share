@@ -17,7 +17,10 @@
   <p>
     <a href="https://github.com/vedantdalavi14/File_Share/blob/main/LICENSE"><img src="https://img.shields.io/github/license/vedantdalavi14/File_Share?style=for-the-badge" alt="License"></a>
     <a href="https://www.linkedin.com/in/vedant-dalavi-175419331/"><img src="https://img.shields.io/badge/LinkedIn-VedantDalavi-blue?style=for-the-badge&logo=linkedin" alt="LinkedIn"></a>
-    <a href="https://twitter.com/VedantDalavi14"><img src="https://img.shields.io/badge/Twitter-@VedantDalavi14-blue?style=for-the-badge&logo=twitter" alt="Twitter"></a>
+    <a href="https://vedantdalavi.vercel.app/">
+  <img src="https://img.shields.io/badge/Portfolio-vedantdalavi.vercel.app-blue?style=for-the-badge&logo=vercel" alt="Portfolio">
+</a>
+
   </p>
 </div>
 
