@@ -5,6 +5,8 @@ import { storage } from "./storage";
 import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import path from "path";
+import fs from "fs";
 
 const app = express();
 app.use(express.json());
@@ -82,7 +84,11 @@ io.on('connection', (socket) => {
   });
 
   if (app.get("env") === "production") {
-    serveStatic(app);
+    const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+    app.use(express.static(distPath));
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(distPath, "index.html"));
+    });
   }
 
   // importantly only setup vite in development and after
