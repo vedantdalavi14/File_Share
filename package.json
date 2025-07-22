@@ -8,10 +8,11 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
+    "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "render-build": "npm install --omit=dev && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
