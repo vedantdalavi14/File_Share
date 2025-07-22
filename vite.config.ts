@@ -43,9 +43,4 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: [".onrender.com"],
   },
-  css: {
-    postcss: {
-      // ... existing code ...
-    },
-  },
 });
