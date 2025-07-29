@@ -1,5 +1,5 @@
-import type { Express } from "express";
-import type { Server as SocketIOServer } from "socket.io";
+import type { Express, Request, Response } from "express";
+import type { Server as SocketIOServer, Socket } from "socket.io";
 import { storage } from "./storage";
 import { insertRoomSchema } from "@shared/schema";
 import { z } from "zod";
@@ -29,7 +29,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
   // const activeBidirectionalRooms = new Map<string, Set<string>>();
 
   // API Routes
-  app.post("/api/rooms", async (req, res) => {
+  app.post("/api/rooms", async (_req: Request, res: Response) => {
     try {
       const roomId = nanoid(8);
       // Create metadata
@@ -44,7 +44,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.get("/api/rooms/:id", async (req, res) => {
+  app.get("/api/rooms/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const room = p2pRooms.get(id);
@@ -58,7 +58,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.get("/api/files/:uuid", async (req, res) => {
+  app.get("/api/files/:uuid", async (req: Request, res: Response) => {
     try {
       const { uuid } = req.params;
       const file = await storage.getFileByUuid(uuid);
@@ -97,7 +97,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.post("/api/files/upload", upload.none(), async (req, res) => {
+  app.post("/api/files/upload", upload.none(), async (req: Request, res: Response) => {
     try {
       const { fileName: originalName, fileType } = req.body;
 
@@ -140,7 +140,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
   });
 
   // This new endpoint is called by the client *after* a direct upload is successful.
-  app.post("/api/files/finalize", async (req, res) => {
+  app.post("/api/files/finalize", async (req: Request, res: Response) => {
     try {
       const {
         uuid,
@@ -175,7 +175,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
   });
 
   // --- New Bidirectional P2P Routes ---
-  app.post("/api/bidirectional-rooms", (req, res) => {
+  app.post("/api/bidirectional-rooms", (_req: Request, res: Response) => {
     try {
       const roomId = nanoid(8);
       bidirectionalRooms.set(roomId, { id: roomId, createdAt: new Date(), hostId: null });
@@ -188,7 +188,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     }
   });
 
-  app.get("/api/bidirectional-rooms/:roomId", (req, res) => {
+  app.get("/api/bidirectional-rooms/:roomId", (req: Request, res: Response) => {
     try {
       const { roomId } = req.params;
       const room = bidirectionalRooms.get(roomId);
@@ -207,7 +207,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
   });
 
   // Socket.IO signaling for WebRTC
-  io.on("connection", (socket) => {
+  io.on("connection", (socket: Socket) => {
     console.log("Client connected:", socket.id);
 
     socket.on("join-room", (roomId: string) => {
@@ -297,7 +297,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
     });
 
     // --- Bidirectional P2P Signaling ---
-    socket.on("bidi-join-room", ({ roomId }) => {
+    socket.on("bidi-join-room", ({ roomId }: { roomId: string }) => {
       if (!activeBidirectionalRooms.has(roomId)) {
         console.warn(`[BiDi] ⚠️ Client ${socket.id} tried to join non-existent room ${roomId}`);
         socket.emit("bidi-error", { message: "Room not found." });
@@ -326,7 +326,7 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
       socket.emit("bidi-room-participants", { participants: otherClients });
     });
 
-    socket.on("bidi-leave-room", ({ roomId }) => {
+    socket.on("bidi-leave-room", ({ roomId }: { roomId: string }) => {
       const roomClients = activeBidirectionalRooms.get(roomId);
       if (roomClients && roomClients.has(socket.id)) {
         socket.leave(roomId);
@@ -345,28 +345,38 @@ export function registerRoutes(app: Express, io: SocketIOServer) {
       }
     });
 
-    socket.on("bidi-webrtc-offer", (data) => {
+    socket.on("bidi-webrtc-offer", (data: { targetId: string, offer: any, roomId: string }) => {
       console.log(`[BiDi] 📨 Offer from ${socket.id} to ${data.targetId}`);
       socket.to(data.targetId).emit("bidi-webrtc-offer", { offer: data.offer, fromId: socket.id });
     });
 
-    socket.on("bidi-webrtc-answer", (data) => {
+    socket.on("bidi-webrtc-answer", (data: { targetId: string, answer: any, roomId: string }) => {
       console.log(`[BiDi] 📩 Answer from ${socket.id} to ${data.targetId}`);
       socket.to(data.targetId).emit("bidi-webrtc-answer", { answer: data.answer, fromId: socket.id });
     });
 
-    socket.on("bidi-webrtc-ice-candidate", (data) => {
+    socket.on("bidi-webrtc-ice-candidate", (data: { targetId: string, candidate: any, roomId: string }) => {
       // This can be very verbose, so it's commented out by default.
       // console.log(`[BiDi] 🧊 ICE candidate from ${socket.id} to ${data.targetId}`);
       socket.to(data.targetId).emit("bidi-webrtc-ice-candidate", { candidate: data.candidate, fromId: socket.id });
     });
     
-    socket.on("bidi-chat-message", (data) => {
+    socket.on("bidi-chat-message", (data: { roomId: string, message: string }) => {
       console.log(`[BiDi] 💬 Chat from ${socket.id} in room ${data.roomId}: ${data.message}`);
       socket.to(data.roomId).emit("bidi-chat-message", {
         message: data.message,
         fromId: socket.id,
         timestamp: new Date()
+      });
+    });
+
+    socket.on("bidi-file-incoming", (data) => {
+      console.log(`[BiDi] 📥 File incoming from ${socket.id} in room ${data.roomId}: ${data.fileName}`);
+      socket.to(data.roomId).emit("bidi-file-incoming", {
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        transferId: data.transferId,
+        fromId: socket.id
       });
     });
 

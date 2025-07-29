@@ -22,7 +22,7 @@ export class WebRTCManager {
   private peerConnection: RTCPeerConnection | null = null;
   private activeChannels: RTCDataChannel[] = [];
   private onProgressCallback: ((progress: FileTransferProgress) => void) | null = null;
-  private onFileReceivedCallback: ((file: Blob, fileName: string) => void) | null = null;
+  private onFileReceivedCallback: ((file: Blob, fileName: string, transferId: string) => void) | null = null;
   private onConnectionStateChangeCallback: ((state: string) => void) | null = null;
   
   // File transfer state
@@ -42,8 +42,11 @@ export class WebRTCManager {
   private currentTransferId: string | null = null;
 
   // Optimization properties
-  private readonly MAX_PARALLEL_CHANNELS = 5;
+  private readonly MAX_PARALLEL_CHANNELS = 10;
   private readonly CHUNK_SIZE = 260000; // Just under the 256KB limit to allow for headers
+  private readonly ACK_CHANNEL_INDEX = 0; // Use the primary channel for ACKs
+  private readonly ACK_INTERVAL = 200; // Send ACK every 200ms
+  private lastAckTime = 0;
 
   constructor() {
     this.setupPeerConnection();
@@ -171,6 +174,7 @@ export class WebRTCManager {
       fileSize: file.size,
       fileType: file.type,
       totalChunks,
+      transferId: this.currentTransferId,
     };
     // Use a separate send function for metadata to avoid binary packet logic
     await this.sendWithBackpressure(this.activeChannels[0], JSON.stringify(metadata));
@@ -192,17 +196,13 @@ export class WebRTCManager {
         
         await this.sendWithBackpressure(channel, packet);
         
-        const now = Date.now();
-        if (now - lastProgressUpdateTime > 100) { // Throttle updates
-            this.updateProgress(file.name, file.size, end);
-            lastProgressUpdateTime = now;
-        }
+        // SENDER progress is now driven by receiver ACKs, so we remove the old update logic here.
         
         channelIndex = (channelIndex + 1) % this.activeChannels.length;
     }
 
-    // Final progress update
-    this.updateProgress(file.name, file.size, file.size);
+    // The sender no longer updates its own progress bar directly upon sending.
+    // It waits for ACKs from the receiver.
 
     // Wait for all channel buffers to drain before sending completion
     const waitForDraining = () => {
@@ -295,6 +295,7 @@ export class WebRTCManager {
           this.currentFileName = message.fileName;
           this.currentFileSize = message.fileSize;
           this.currentFileType = message.fileType;
+          this.currentTransferId = message.transferId;
           this.transferStartTime = Date.now();
           this.fileReconstructionTriggered = false;
           this.missingChunkRetries = 0;
@@ -302,6 +303,9 @@ export class WebRTCManager {
           this.reconstructAndDownloadFile();
         } else if (message.type === 'request-missing-chunks') {
           this.resendChunks(message.indices);
+        } else if (message.type === 'progress-ack') {
+          // Receiver is acknowledging progress, update sender's UI
+          this.updateProgress(this.sentFile!.name, this.sentFile!.size, message.bytesReceived);
         }
       } else if (data instanceof ArrayBuffer) {
         // Binary packet: [index (2 bytes), checksum (1 byte), ...chunkData]
@@ -316,9 +320,20 @@ export class WebRTCManager {
             const bytesReceived = Array.from(this.receivedChunks.values()).reduce((sum, chunk) => sum + chunk.byteLength, 0);
             
             const now = Date.now();
+
+            // The receiver ALWAYS updates its own progress bar
             if (now - this.lastReceiverProgressUpdateTime > 100) {
                 this.updateProgress(this.currentFileName, this.currentFileSize, bytesReceived);
                 this.lastReceiverProgressUpdateTime = now;
+            }
+
+            // And sends acknowledgements back to the sender
+            if (now - this.lastAckTime > this.ACK_INTERVAL) {
+              this.activeChannels[this.ACK_CHANNEL_INDEX].send(JSON.stringify({
+                type: 'progress-ack',
+                bytesReceived: bytesReceived,
+              }));
+              this.lastAckTime = now;
             }
 
             if (this.receivedChunks.size === this.expectedChunks) {
@@ -380,6 +395,12 @@ export class WebRTCManager {
 
     this.updateProgress(this.currentFileName, this.currentFileSize, this.currentFileSize);
     
+    // Final acknowledgement to sync sender's progress to 100%
+    this.activeChannels[this.ACK_CHANNEL_INDEX].send(JSON.stringify({
+      type: 'progress-ack',
+      bytesReceived: this.currentFileSize,
+    }));
+
     // Pre-allocate array and fill it in order for performance
     const chunks = new Array(this.expectedChunks);
     for (let i = 0; i < this.expectedChunks; i++) {
@@ -387,11 +408,16 @@ export class WebRTCManager {
     }
     
     const blob = new Blob(chunks, { type: this.currentFileType });
-    this.onFileReceivedCallback?.(blob, this.currentFileName);
+    this.onFileReceivedCallback?.(blob, this.currentFileName, this.currentTransferId!);
   }
 
-  onProgress(callback: (progress: FileTransferProgress) => void) { this.onProgressCallback = callback; }
-  onFileReceived(callback: (file: Blob, fileName: string) => void) { this.onFileReceivedCallback = callback; }
+  public onFileReceived(callback: (file: Blob, fileName: string, transferId: string) => void) {
+    this.onFileReceivedCallback = callback;
+  }
+
+  public onProgress(callback: (progress: FileTransferProgress) => void) {
+    this.onProgressCallback = callback;
+  }
   onConnectionStateChange(callback: (state: string) => void) { this.onConnectionStateChangeCallback = callback; }
 
   close(soft = false) {

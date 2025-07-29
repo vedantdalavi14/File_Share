@@ -59,6 +59,10 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
   const [chatInput, setChatInput] = useState('');
   const [error, setError] = useState('');
   const [myId, setMyId] = useState('');
+  const [isZipping, setIsZipping] = useState(false);
+  const [transferDirection, setTransferDirection] = useState<'sending' | 'receiving' | null>(null);
+  const [isPeerPreparingFile, setIsPeerPreparingFile] = useState(false);
+  const pendingFilePrep = useRef<string | null>(null);
 
   // Setup listeners and join room
   useEffect(() => {
@@ -88,11 +92,21 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
           if (state === 'disconnected' || state === 'failed') {
             setStatus('disconnected');
             setPeerId(null);
+            setTransferDirection(null); // Reset transfer state on disconnect
           }
         });
 
-        webrtcManager.onFileReceived(async (file, fileName) => {
-          console.log(`[BiDiRoom] 📥 File received via WebRTC: ${fileName}`, file);
+        webrtcManager.onFileReceived(async (file, fileName, transferId) => {
+          console.log(`[BiDiRoom] 📥 File fully received via WebRTC: ${fileName}`);
+          setTransferDirection(null); // Transfer is complete for the receiver
+
+          // Find the transfer placeholder and update it
+          setTransfers(prev => prev.map(t => {
+            if (t.id === transferId) {
+              return { ...t, status: 'completed', blob: file };
+            }
+            return t;
+          }));
 
           if (fileName.startsWith('OpeOpeArchive-') && fileName.endsWith('.zip')) {
             toast({ title: 'Receiving Zipped Files', description: 'Unzipping archive...' });
@@ -104,9 +118,9 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
                 if (!zipEntry.dir) {
                   const blob = await zipEntry.async('blob');
                   const unzippedFile = new File([blob], relativePath, { type: blob.type });
-                  const transferId = `${unzippedFile.name}-${Date.now()}`;
+                  const newTransferId = `${unzippedFile.name}-${Date.now()}`;
                   unzippedFiles.push({
-                    id: transferId,
+                    id: newTransferId,
                     name: unzippedFile.name,
                     size: unzippedFile.size,
                     type: 'received',
@@ -115,27 +129,24 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
                   });
                 }
               }
-              setTransfers(prev => [...prev, ...unzippedFiles]);
+              // Add the unzipped files, but remove the original zip placeholder
+              setTransfers(prev => [...prev.filter(t => t.id !== transferId), ...unzippedFiles]);
               toast({ title: 'Files Unzipped', description: `Successfully extracted ${unzippedFiles.length} files.` });
             } catch (error) {
               console.error('[BiDiRoom] ❌ Failed to unzip file:', error);
               toast({ variant: 'destructive', title: 'Unzip Failed', description: 'The received file archive appears to be corrupt.' });
             }
           } else {
-            const transferId = `${fileName}-${Date.now()}`;
-            setTransfers(prev => [...prev, {
-              id: transferId,
-              name: fileName,
-              size: file.size,
-              type: 'received',
-              blob: file,
-              status: 'completed',
-            }]);
             toast({ title: 'File Received', description: fileName });
           }
         });
 
         webrtcManager.onProgress(progress => {
+          if (pendingFilePrep.current === progress.id) {
+            console.log('[BiDiRoom] 🚀 First progress event received, sending file prep ended.');
+            socketManager.getSocket()?.emit('bidi-file-prep', { roomId, isPreparing: false });
+            pendingFilePrep.current = null;
+          }
           // This can be very verbose
           // console.log('[BiDiRoom] 📤 File transfer progress:', progress);
           setTransfers(prev => prev.map(t =>
@@ -165,6 +176,7 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
       socket.off('bidi-peer-left');
       socket.off('bidi-chat-message');
       socket.off('bidi-error');
+      socket.off('bidi-file-prep');
     };
 
     return () => {
@@ -235,6 +247,19 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
       setChatMessages(prev => [...prev, { id: timestamp, message, fromId, timestamp, type: 'received' }]);
     });
 
+    socket.on('bidi-file-incoming', ({ fileName, fileSize, transferId }) => {
+      console.log(`[BiDiRoom] 📥 Peer is sending a file: ${fileName}`);
+      setTransferDirection('receiving'); // A transfer is now active for the receiver
+      setTransfers(prev => [...prev, {
+        id: transferId,
+        name: fileName,
+        size: fileSize,
+        type: 'received',
+        status: 'progress', // We'll show progress bar right away
+        progress: { id: transferId, fileName, fileSize, bytesTransferred: 0, percentage: 0, speed: 0, timeRemaining: Infinity },
+      }]);
+    });
+
     socket.on('bidi-error', ({ message }) => {
       console.error('[BiDiRoom] 🚨 Received error from server:', message);
       setStatus('error');
@@ -261,11 +286,25 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
       return;
     }
 
+    if (transferDirection) {
+      toast({
+        title: "Transfer in Progress",
+        description: "Please wait for the current file to finish sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const socket = socketManager.getSocket();
+    if (!socket) return;
+
     let fileToSend: File;
     let transferName: string;
+    const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB
 
     if (files.length > 1) {
       console.log(`[BiDiRoom] 🗜️ Zipping ${files.length} files for transfer.`);
+      setIsZipping(true);
       const zip = new JSZip();
       for (let i = 0; i < files.length; i++) {
         zip.file(files[i].name, files[i]);
@@ -273,6 +312,7 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       transferName = `OpeOpeArchive-${Date.now()}.zip`;
       fileToSend = new File([zipBlob], transferName, { type: 'application/zip' });
+      setIsZipping(false);
     } else {
       fileToSend = files[0];
       transferName = fileToSend.name;
@@ -280,6 +320,17 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
 
     console.log(`[BiDiRoom] 📄 File selected: ${transferName}. Starting transfer.`);
     const transferId = `${transferName}-${Date.now()}`;
+
+    // Notify the peer that a file is about to be sent
+    socket.emit('bidi-file-incoming', {
+      roomId,
+      fileName: transferName,
+      fileSize: fileToSend.size,
+      transferId,
+    });
+
+    // Add to local transfers list *immediately* so sender also sees it.
+    // The progress will be updated by the onProgress handler.
     setTransfers(prev => [...prev, {
       id: transferId,
       name: transferName,
@@ -290,6 +341,7 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
     }]);
 
     try {
+      setTransferDirection('sending');
       await webrtcManager.sendFile(fileToSend, transferId);
       console.log(`[BiDiRoom] ✅ File transfer completed for: ${transferName}`);
       setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'completed' } : t));
@@ -297,6 +349,7 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
       console.error(`[BiDiRoom] ❌ File transfer failed for: ${transferName}`, err);
       setTransfers(prev => prev.map(t => t.id === transferId ? { ...t, status: 'failed' } : t));
     } finally {
+      setTransferDirection(null);
       // Reset file input to allow selecting the same file again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -347,11 +400,20 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
         <span className="font-semibold truncate">{t.name}</span>
         <Badge variant={t.type === 'sent' ? 'secondary' : 'secondary'}>{t.type}</Badge>
       </div>
-      {t.status === 'progress' && t.progress && <Progress value={t.progress.percentage} className="my-1" />}
+      {t.status === 'progress' && t.progress && (
+        <div className="mt-1">
+          <Progress value={t.progress.percentage} className="my-1" />
+          <div className="text-xs text-gray-500 flex justify-between">
+            <span>{t.type === 'sent' ? 'Sending...' : 'Receiving...'}</span>
+            <span>{Math.round(t.progress.percentage)}%</span>
+          </div>
+        </div>
+      )}
       {t.status === 'completed' && t.type === 'received' && t.blob && (
         <Button onClick={() => downloadFile(t.blob!, t.name)} size="sm" className="mt-1 w-full bg-red-500 hover:bg-red-600 text-white"><Download className="mr-2" />Download</Button>
       )}
       {t.status === 'completed' && t.type === 'sent' && <div className="text-green-600 text-xs flex items-center mt-1"><CheckCircle className="mr-1" />Sent</div>}
+      {t.status === 'failed' && <div className="text-red-600 text-xs flex items-center mt-1"><XCircle className="mr-1" />Failed</div>}
     </div>
   );
 
@@ -403,9 +465,16 @@ export function BidirectionalP2PRoom({ roomId }: BidirectionalP2PRoomProps) {
                   )}
                 </div>
                 <Input ref={fileInputRef} type="file" className="hidden" onChange={handleFilesSelect} multiple />
-                <Button onClick={() => fileInputRef.current?.click()} disabled={status !== 'connected'} className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white">
-                  <Paperclip className="mr-2 h-4 w-4" />
-                  Select & Send File(s)
+                <Button onClick={() => fileInputRef.current?.click()} disabled={status !== 'connected' || isZipping || !!transferDirection} className="w-full mt-2 bg-red-500 hover:bg-red-600 text-white">
+                  {isZipping ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Zipping...</>
+                  ) : transferDirection === 'sending' ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
+                  ) : transferDirection === 'receiving' ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Receiving...</>
+                  ) : (
+                    <><Paperclip className="mr-2 h-4 w-4" /> Select & Send File(s)</>
+                  )}
                 </Button>
               </div>
               {/* Chat Column */}
